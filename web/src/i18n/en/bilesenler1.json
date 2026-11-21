@@ -1,0 +1,19 @@
+{
+  "Sırada": "Queued",
+  "Çalışıyor": "Running",
+  "Tamamlandı": "Done",
+  "Hata": "Failed",
+  "İptal edildi": "Canceled",
+  "Geçen süre {time}": "Elapsed time {time}",
+  "İptal": "Cancel",
+  "Onarmayı dene": "Try to repair",
+  "{n} ayrıntı / uyarı": "{n} detail / warning|{n} details / warnings",
+  "{n} sayfa": "{n} page|{n} pages",
+  "İçerik ekle": "Add content",
+  "İndir": "Download",
+  "Hepsini ZIP olarak indir": "Download all as ZIP",
+  "Özet": "Summary",
+
+  "Dosyaları buraya bırak ya da tıklayıp seç": "Drop files here or click to choose",
+  "Dosya seç": "Choose files"
+}

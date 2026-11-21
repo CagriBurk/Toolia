@@ -2,6 +2,7 @@ import { Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useUpload } from "../hooks";
 import { homeRoute } from "../pages/Home";
+import { t } from "../i18n";
 import { navigate } from "../router";
 import { toast } from "../toast";
 import Icon from "./Icon";
@@ -82,8 +83,8 @@ export default function GlobalDropOverlay({ section }: { section: string }) {
         <span className="global-drop-icon">
           <Icon icon={Upload} size={28} strokeWidth={2.1} />
         </span>
-        <strong>Dosyayı buraya bırak</strong>
-        <span>PDF, resim, Office ya da Markdown — Toolia uygun aracı otomatik açar.</span>
+        <strong>{t("Dosyayı buraya bırak")}</strong>
+        <span>{t("PDF, resim, Office ya da Markdown — Toolia uygun aracı otomatik açar.")}</span>
       </div>
     </div>
   );

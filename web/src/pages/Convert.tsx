@@ -7,6 +7,7 @@ import PageHeader from "../components/PageHeader";
 import PasswordDialog from "../components/PasswordDialog";
 import SortableList from "../components/SortableList";
 import { useFiles, useJob, useUnlockQueue } from "../hooks";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import { idsFrom, navigate, type Route } from "../router";
 import { ACCEPT, commonConvertTargets, convertFamily, convertTargets, lowerExt, PAPERS, sameFormat } from "../tools";
@@ -55,17 +56,17 @@ const PDF_TARGETS = [".png", ".jpg", ".docx", ".xlsx"];
 export function noTargetReason(names: string[]): string | null {
   if (!names.length || commonConvertTargets(names).length) return null;
   const unsupported = names.filter((n) => !convertTargets(n).length);
-  if (unsupported.length) return `Bu dosyalar dönüştürülemez: ${unsupported.join(", ")}. Listeden çıkar.`;
+  if (unsupported.length) return t("Bu dosyalar dönüştürülemez: {dosya}. Listeden çıkar.", { dosya: unsupported.join(", ") });
   // Kalan tek durum: farklı aileler (her ailede en az iki hedef olduğundan aile içinde hep ortak var).
-  const nouns = [...new Set(names.map(convertFamily))].map((f) => FAMILY_NOUN[f ?? ""]).join(", ");
-  return `Seçili dosyalar aynı biçime çevrilemez (${nouns}). Aynı türden dosyaları birlikte dönüştür.`;
+  const nouns = [...new Set(names.map(convertFamily))].map((f) => t(FAMILY_NOUN[f ?? ""])).join(", ");
+  return t("Seçili dosyalar aynı biçime çevrilemez ({tur}). Aynı türden dosyaları birlikte dönüştür.", { tur: nouns });
 }
 
 /** Karışık seçimde zaten hedef biçimde olan dosyalar için not (yoksa null). */
 export function alreadyNote(names: string[], target: string): string | null {
   const n = names.filter((x) => sameFormat(x) === target).length;
   if (!target || !n || n === names.length) return null;
-  return `Zaten ${TARGET_LABEL[target] ?? target} olan ${n} dosya olduğu gibi alınır.`;
+  return t("Zaten {f} olan {n} dosya olduğu gibi alınır.", { f: t(TARGET_LABEL[target] ?? target), n });
 }
 
 /** Evrensel hedef listesi: resim → resim/PDF, Office/HTML/TXT → aynı aile/PDF, tek PDF → resim/Word/Excel. */
@@ -85,9 +86,12 @@ export function universalTargets(files: Pick<FileMeta, "name" | "kind">[]): stri
 function universalNoTargetReason(files: FileMeta[]): string | null {
   if (!files.length || universalTargets(files).length) return null;
   if (files.every((f) => f.kind === "pdf") && files.length > 1) {
-    return "PDF dönüştürme tek dosya içindir. Birden çok PDF'i birleştirmek için Birleştir aracını kullanabilirsin.";
+    return t("PDF dönüştürme tek dosya içindir. Birden çok PDF'i birleştirmek için Birleştir aracını kullanabilirsin.");
   }
-  return noTargetReason(files.map((f) => f.name)) ?? "Seçili dosyalar farklı türlerde; aynı türden dosyaları birlikte dönüştür.";
+  return (
+    noTargetReason(files.map((f) => f.name)) ??
+    t("Seçili dosyalar farklı türlerde; aynı türden dosyaları birlikte dönüştür.")
+  );
 }
 
 interface Props {
@@ -227,24 +231,24 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
   };
 
   const sideNote = needsLo
-    ? "Office belgeleri LibreOffice ile çevrilir; karmaşık sayfalarda küçük düzen farkları olabilir. Uyumsuz ya da bozuk bir dosya diğerlerini durdurmaz; hata olarak bildirilir."
+    ? t("Office belgeleri LibreOffice ile çevrilir; karmaşık sayfalarda küçük düzen farkları olabilir. Uyumsuz ya da bozuk bir dosya diğerlerini durdurmaz; hata olarak bildirilir.")
     : singlePdf && (isPdfToWord || isPdfToExcel)
-      ? "Taranmış (fotoğraf gibi) PDF'lerde metin yoktur; önce OCR ile metni tanıman gerekir."
+      ? t("Taranmış (fotoğraf gibi) PDF'lerde metin yoktur; önce OCR ile metni tanıman gerekir.")
       : isImgToPdf
-        ? "Her resim bir sayfa olarak tek PDF'te birleştirilir. Sırayı listeden sürükleyerek değiştirebilirsin."
-        : "Uyumsuz ya da bozuk bir dosya diğerlerini durdurmaz; hata olarak bildirilir.";
+        ? t("Her resim bir sayfa olarak tek PDF'te birleştirilir. Sırayı listeden sürükleyerek değiştirebilirsin.")
+        : t("Uyumsuz ya da bozuk bir dosya diğerlerini durdurmaz; hata olarak bildirilir.");
 
   const filesHint = !files.length
     ? undefined
     : sortable
-      ? "Sırayı değiştirmek için dosyaları sürükle."
+      ? t("Sırayı değiştirmek için dosyaları sürükle.")
       : isImgToPdf
-        ? "Her resim bir sayfa olur."
+        ? t("Her resim bir sayfa olur.")
         : isOfficeToPdf && mergePdf
-          ? "Tüm belgeler tek PDF'te birleştirilir."
+          ? t("Tüm belgeler tek PDF'te birleştirilir.")
           : singlePdf
-            ? "Seçilen hedef biçime göre dönüştürülür."
-            : "Her dosya ayrı çevrilir; adı korunur.";
+            ? t("Seçilen hedef biçime göre dönüştürülür.")
+            : t("Her dosya ayrı çevrilir; adı korunur.");
 
   return (
     <>
@@ -253,7 +257,7 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
         <div className="tool-main">
           {lo && !lo.ok && needsLo && (
             <div className="banner error">
-              LibreOffice bulunamadı; Word, Excel ve PowerPoint dosyaları çevrilemez. Resimler ve PDF'ler çevrilebilir.
+              {t("LibreOffice bulunamadı; Word, Excel ve PowerPoint dosyaları çevrilemez. Resimler ve PDF'ler çevrilebilir.")}
               {engines?.windows ? (
                 <InstallLibreOffice onInstalled={onEnginesChanged} />
               ) : (
@@ -285,22 +289,22 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
               accept={UNIVERSAL_ACCEPT}
               kind={KINDS}
               compact={files.length > 0}
-              title={files.length ? "Dosya ekle" : "PDF, resim ya da Office dosyalarını bırak (PDF, JPG, PNG, HEIC, DOCX, XLSX, PPTX…)"}
+              title={files.length ? t("Dosya ekle") : t("PDF, resim ya da Office dosyalarını bırak (PDF, JPG, PNG, HEIC, DOCX, XLSX, PPTX…)")}
               onAdd={(added) => (setFiles((f) => [...f, ...added]), job.reset())}
             />
           </FilesCard>
 
           <section className="card">
-            <h2>Seçenekler</h2>
+            <h2>{t("Seçenekler")}</h2>
             {!files.length ? (
-              <p className="muted small">Dosya seçince çevrilebileceği tüm biçimler (PDF dahil) burada çıkar.</p>
+              <p className="muted small">{t("Dosya seçince çevrilebileceği tüm biçimler (PDF dahil) burada çıkar.")}</p>
             ) : reason ? (
               <div className="banner warn" role="status">
                 <p style={{ margin: 0 }}>{reason}</p>
                 {multiPdf && (
                   <p style={{ margin: "10px 0 0" }}>
                     <button type="button" className="small" onClick={() => navigate("birlestir", { dosya: files.map((f) => f.id) })}>
-                      Birleştir aracında aç
+                      {t("Birleştir aracında aç")}
                     </button>
                   </p>
                 )}
@@ -308,37 +312,37 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
             ) : (
               <>
                 <fieldset className="field plain">
-                  <legend>Hedef biçim</legend>
-                  <div className="segmented seg-track convert-targets" role="group" aria-label="Hedef biçim">
-                    {targets.map((t) => (
+                  <legend>{t("Hedef biçim")}</legend>
+                  <div className="segmented seg-track convert-targets" role="group" aria-label={t("Hedef biçim")}>
+                    {targets.map((tg) => (
                       <button
-                        key={t}
+                        key={tg}
                         type="button"
-                        className={t === target ? "on" : undefined}
-                        aria-pressed={t === target}
-                        onClick={() => (setPicked(t), job.reset())}
+                        className={tg === target ? "on" : undefined}
+                        aria-pressed={tg === target}
+                        onClick={() => (setPicked(tg), job.reset())}
                       >
-                        {TARGET_LABEL[t] ?? t}
+                        {t(TARGET_LABEL[tg] ?? tg)}
                       </button>
                     ))}
                   </div>
                 </fieldset>
                 {already && <p className="muted small">{already}</p>}
-                {TARGET_HINT[target] && <p className="muted small">{TARGET_HINT[target]}</p>}
+                {TARGET_HINT[target] && <p className="muted small">{t(TARGET_HINT[target])}</p>}
 
                 {/* Resim → Resim seçenekleri */}
                 {(lossy || alpha) && (
                   <div className="fields">
                     {lossy && (
                       <label className="field">
-                        Kalite: {quality}
+                        {t("Kalite: {n}", { n: quality })}
                         <input type="range" min={10} max={100} step={5} value={quality} onChange={(e) => setQuality(Number(e.target.value))} />
-                        <span className="small">Düşük kalite daha küçük dosya verir.</span>
+                        <span className="small">{t("Düşük kalite daha küçük dosya verir.")}</span>
                       </label>
                     )}
                     {alpha && (
                       <div className="field">
-                        <label htmlFor="conv-bg">Arka plan rengi</label>
+                        <label htmlFor="conv-bg">{t("Arka plan rengi")}</label>
                         <div className="color-control">
                           <input id="conv-bg" type="color" value={background} onChange={(e) => setBackground(e.target.value)} />
                           <span className="mono muted">{background.toUpperCase()}</span>
@@ -350,12 +354,12 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
                                 className={`small${background.toLowerCase() === p.color ? " on" : ""}`}
                                 onClick={() => setBackground(p.color)}
                               >
-                                {p.label}
+                                {t(p.label)}
                               </button>
                             ))}
                           </span>
                         </div>
-                        <span className="small">JPG saydamlık taşımaz; saydam yerler bu renkle dolar.</span>
+                        <span className="small">{t("JPG saydamlık taşımaz; saydam yerler bu renkle dolar.")}</span>
                       </div>
                     )}
                   </div>
@@ -365,35 +369,35 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
                 {isImgToPdf && (
                   <div className="fields">
                     <label className="field">
-                      Sayfa boyutu
+                      {t("Sayfa boyutu")}
                       <select value={pageSize} onChange={(e) => setPageSize(e.target.value)}>
                         {PAPERS.map((p) => (
                           <option key={p} value={p}>
                             {p}
                           </option>
                         ))}
-                        <option value="resim">Resmin kendi boyutu</option>
+                        <option value="resim">{t("Resmin kendi boyutu")}</option>
                       </select>
                     </label>
                     {pageSize !== "resim" && (
                       <label className="field">
-                        Yön
+                        {t("Yön")}
                         <select value={orientation} onChange={(e) => setOrientation(e.target.value)}>
-                          <option value="otomatik">Otomatik (resme göre)</option>
-                          <option value="dikey">Dikey</option>
-                          <option value="yatay">Yatay</option>
+                          <option value="otomatik">{t("Otomatik (resme göre)")}</option>
+                          <option value="dikey">{t("Dikey")}</option>
+                          <option value="yatay">{t("Yatay")}</option>
                         </select>
                       </label>
                     )}
                     {pageSize !== "resim" && (
                       <label className="field">
-                        Kenar boşluğu: {margin} mm
+                        {t("Kenar boşluğu: {n} mm", { n: margin })}
                         <input type="range" min={0} max={30} value={margin} onChange={(e) => setMargin(Number(e.target.value))} />
                       </label>
                     )}
                     <label className="field">
-                      Çıktı adı
-                      <input className="input" placeholder="otomatik" value={outName} onChange={(e) => setOutName(e.target.value)} />
+                      {t("Çıktı adı")}
+                      <input className="input" placeholder={t("otomatik")} value={outName} onChange={(e) => setOutName(e.target.value)} />
                     </label>
                   </div>
                 )}
@@ -403,18 +407,18 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
                   <>
                     <label className="check">
                       <input type="checkbox" checked={mergePdf} onChange={(e) => setMergePdf(e.target.checked)} />
-                      Hepsini tek PDF'te birleştir (her dosya için yer imi)
+                      {t("Hepsini tek PDF'te birleştir (her dosya için yer imi)")}
                     </label>
                     {mergePdf && (
                       <label className="field">
-                        Çıktı adı
-                        <input className="input" placeholder="otomatik" value={outName} onChange={(e) => setOutName(e.target.value)} />
+                        {t("Çıktı adı")}
+                        <input className="input" placeholder={t("otomatik")} value={outName} onChange={(e) => setOutName(e.target.value)} />
                       </label>
                     )}
                     {needsLo && (
                       <label className="check">
                         <input type="checkbox" checked={pdfa} onChange={(e) => setPdfa(e.target.checked)} />
-                        Arşiv için PDF/A (Office dosyaları)
+                        {t("Arşiv için PDF/A (Office dosyaları)")}
                       </label>
                     )}
                   </>
@@ -424,17 +428,17 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
                 {isPdfToImg && (
                   <div className="fields">
                     <label className="field">
-                      Çözünürlük
+                      {t("Çözünürlük")}
                       <select value={dpi} onChange={(e) => setDpi(Number(e.target.value))}>
-                        <option value={72}>72 DPI (ekran, küçük)</option>
-                        <option value={150}>150 DPI (önerilen)</option>
+                        <option value={72}>{t("72 DPI (ekran, küçük)")}</option>
+                        <option value={150}>{t("150 DPI (önerilen)")}</option>
                         <option value={200}>200 DPI</option>
-                        <option value={300}>300 DPI (baskı kalitesi)</option>
+                        <option value={300}>{t("300 DPI (baskı kalitesi)")}</option>
                       </select>
                     </label>
                     <label className="field">
-                      Sayfalar
-                      <input className="input" placeholder="hepsi (ör. 1-3, 5)" value={spec} onChange={(e) => setSpec(e.target.value)} />
+                      {t("Sayfalar")}
+                      <input className="input" placeholder={t("hepsi (ör. 1-3, 5)")} value={spec} onChange={(e) => setSpec(e.target.value)} />
                     </label>
                   </div>
                 )}
@@ -443,15 +447,15 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
                 {(isPdfToWord || isPdfToExcel) && (
                   <div className="fields">
                     <label className="field">
-                      Sayfalar
-                      <input className="input" placeholder="hepsi (ör. 1-3, 5)" value={spec} onChange={(e) => setSpec(e.target.value)} />
+                      {t("Sayfalar")}
+                      <input className="input" placeholder={t("hepsi (ör. 1-3, 5)")} value={spec} onChange={(e) => setSpec(e.target.value)} />
                     </label>
                     {isPdfToExcel && (
                       <label className="field">
-                        Düzen
+                        {t("Düzen")}
                         <select value={excelLayout} onChange={(e) => setExcelLayout(e.target.value)}>
-                          <option value="tek">Hepsi tek sayfada</option>
-                          <option value="ayri">Her tablo ayrı sayfada</option>
+                          <option value="tek">{t("Hepsi tek sayfada")}</option>
+                          <option value="ayri">{t("Her tablo ayrı sayfada")}</option>
                         </select>
                       </label>
                     )}
@@ -460,7 +464,7 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
                 {isPdfToExcel && (
                   <label className="check">
                     <input type="checkbox" checked={excelNumbers} onChange={(e) => setExcelNumbers(e.target.checked)} />
-                    Sayıları sayıya çevir (1.234,56 → toplanabilir sayı)
+                    {t("Sayıları sayıya çevir (1.234,56 → toplanabilir sayı)")}
                   </label>
                 )}
               </>
@@ -470,12 +474,18 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
         <aside className="tool-side">
           <ActionCard
             rows={[
-              ["Dosya", filesSummary(files)],
-              ["Hedef", target ? TARGET_LABEL[target] : "—"],
-              ...(isPdfToImg ? ([["Çözünürlük", `${dpi} DPI`]] as [string, string][]) : []),
+              [t("Dosya"), filesSummary(files)],
+              [t("Hedef"), target ? t(TARGET_LABEL[target]) : "—"],
+              ...(isPdfToImg ? ([[t("Çözünürlük"), `${dpi} DPI`]] as [string, string][]) : []),
             ]}
             note={sideNote}
-            label={job.running ? "Dönüştürülüyor…" : files.length > 1 ? `${files.length} dosyayı dönüştür` : "Dönüştür"}
+            label={
+              job.running
+                ? t("Dönüştürülüyor…")
+                : files.length > 1
+                  ? t("{n} dosyayı dönüştür", { n: files.length })
+                  : t("Dönüştür")
+            }
             disabled={!files.length || !target || job.running || (lo && !lo.ok && needsLo)}
             busy={job.running}
             done={job.job?.status === "bitti"}

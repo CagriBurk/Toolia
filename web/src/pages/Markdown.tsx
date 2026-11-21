@@ -31,6 +31,7 @@ import { createSequencer } from "../mdpreview";
 import { idsFrom, LEAVE_MESSAGE, useLeaveGuard, type Route } from "../router";
 import { planInsertion } from "../snippets";
 import { useTheme } from "../theme";
+import { t } from "../i18n";
 import { toast } from "../toast";
 import { PAPERS } from "../tools";
 
@@ -263,15 +264,15 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
       snippet.bodyWithFrontMatter,
     );
     if (!plan) {
-      toast.info(`Notta zaten ön bilgi var; "${snippet.label}" şablonunda eklenecek başka bir şey yok.`);
+      toast.info(t("Notta zaten ön bilgi var; \"{ad}\" şablonunda eklenecek başka bir şey yok.", { ad: t(snippet.label) }));
       return;
     }
     const next = `${text.slice(0, plan.start)}${plan.insertion}${text.slice(plan.end)}`;
     applyEditorEdit(plan.insertion, plan.start, plan.end, next);
     toast.ok(
       plan.droppedFrontMatter
-        ? `"${snippet.label}" şablonu eklendi; notta zaten ön bilgi olduğu için şablonun ön bilgisi (--- arası) atlandı.`
-        : `"${snippet.label}" şablonu eklendi.`,
+        ? t("\"{ad}\" şablonu eklendi; notta zaten ön bilgi olduğu için şablonun ön bilgisi (--- arası) atlandı.", { ad: t(snippet.label) })
+        : t("\"{ad}\" şablonu eklendi.", { ad: t(snippet.label) }),
     );
   };
 
@@ -299,13 +300,13 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
         )}
       </PageHeader>
       {browserMissing && (
-        <div className="banner error">Edge/Chrome bulunamadı; PDF oluşturulamaz. Ayarlar sayfasına bak.</div>
+        <div className="banner error">{t("Edge/Chrome bulunamadı; PDF oluşturulamaz. Ayarlar sayfasına bak.")}</div>
       )}
       {draftOffer && (
         <div className="banner warn md-band" role="status">
           <Icon icon={History} />
           <span className="md-band-text">
-            {formatDraftTime(draftOffer.at)} tarihli kaydedilmemiş bir taslak var ({draftOffer.name}).
+            {t("{zaman} tarihli kaydedilmemiş bir taslak var ({ad}).", { zaman: formatDraftTime(draftOffer.at), ad: draftOffer.name })}
           </span>
           <span className="md-band-actions">
             <button
@@ -318,7 +319,7 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                 setDraftOffer(null);
               }}
             >
-              Taslağı aç
+              {t("Taslağı aç")}
             </button>
             <button
               type="button"
@@ -328,7 +329,7 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                 setDraftOffer(null);
               }}
             >
-              Sil
+              {t("Sil")}
             </button>
           </span>
         </div>
@@ -336,7 +337,7 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
       {encodingNote && (
         <div className="banner warn md-band">
           <Icon icon={Info} />
-          <span className="md-band-text">{encodingNote} İndirirken UTF-8 kullanılır.</span>
+          <span className="md-band-text">{t("{not} İndirirken UTF-8 kullanılır.", { not: encodingNote })}</span>
         </div>
       )}
 
@@ -346,12 +347,12 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
             onFiles={onFiles}
             accept=".md,.markdown,.txt,.png,.jpg,.jpeg,.gif,.webp,.svg"
             disabled={uploading}
-            title={uploading ? "Yükleniyor…" : "Markdown notunu (ve kullandığı resimleri) bırak"}
-            hint="Notta ![[resim.png]] varsa resmi de birlikte bırak; ya da Ayarlar'da Obsidian kasası yolunu tanımla."
+            title={uploading ? t("Yükleniyor…") : t("Markdown notunu (ve kullandığı resimleri) bırak")}
+            hint={t("Notta ![[resim.png]] varsa resmi de birlikte bırak; ya da Ayarlar'da Obsidian kasası yolunu tanımla.")}
           />
           <p className="center md-start">
             <button type="button" className="link-button" onClick={() => opened(null, SAMPLE, null)}>
-              ya da boş bir notla başla
+              {t("ya da boş bir notla başla")}
             </button>
           </p>
           {uploadError && <p className="error-text">{uploadError}</p>}
@@ -363,7 +364,7 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
               <div className="md-tools">
                 <button type="button" onClick={() => setShowEditor((s) => !s)}>
                   <Icon icon={showEditor ? PanelLeftClose : PanelLeftOpen} size={17} />
-                  {showEditor ? "Düzenleyiciyi gizle" : "Düzenleyiciyi göster"}
+                  {showEditor ? t("Düzenleyiciyi gizle") : t("Düzenleyiciyi göster")}
                 </button>
                 <button
                   type="button"
@@ -372,25 +373,25 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                   aria-describedby="formul-onar-aciklama"
                 >
                   <Icon icon={WandSparkles} size={17} />
-                  Formülleri onar
+                  {t("Formülleri onar")}
                 </button>
                 <span id="formul-onar-aciklama" className="sr-only">
                   {FORMULA_FIX_HINT}
                 </span>
                 <SnippetMenu getSource={snippetSource} onInsert={onInsertSnippet} />
                 <label className="md-inline-select">
-                  <span className="sr-only">Tema</span>
-                  <select aria-label="Belge teması" value={opts.theme ?? ""} onChange={(e) => set("theme", e.target.value || null)}>
-                    <option value="">Tema: {effective?.theme ?? "ders"}</option>
-                    <option value="ders">Ders notu</option>
-                    <option value="rapor">Rapor</option>
-                    <option value="sade">Sade</option>
+                  <span className="sr-only">{t("Tema")}</span>
+                  <select aria-label={t("Belge teması")} value={opts.theme ?? ""} onChange={(e) => set("theme", e.target.value || null)}>
+                    <option value="">{t("Tema: {tema}", { tema: effective?.theme ?? "ders" })}</option>
+                    <option value="ders">{t("Ders notu")}</option>
+                    <option value="rapor">{t("Rapor")}</option>
+                    <option value="sade">{t("Sade")}</option>
                   </select>
                 </label>
                 <label className="md-inline-select">
-                  <span className="sr-only">Kağıt</span>
-                  <select aria-label="Kağıt boyutu" value={opts.paper ?? ""} onChange={(e) => set("paper", e.target.value || null)}>
-                    <option value="">Kağıt: {effective?.paper ?? "A4"}</option>
+                  <span className="sr-only">{t("Kağıt")}</span>
+                  <select aria-label={t("Kağıt boyutu")} value={opts.paper ?? ""} onChange={(e) => set("paper", e.target.value || null)}>
+                    <option value="">{t("Kağıt: {deger}", { deger: effective?.paper ?? "A4" })}</option>
                     {PAPERS.map((p) => (
                       <option key={p} value={p}>
                         {p}
@@ -405,7 +406,7 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                   onClick={() => setShowMoreOpts((v) => !v)}
                 >
                   <Icon icon={SlidersHorizontal} size={16} />
-                  Belge ayarları
+                  {t("Belge ayarları")}
                   {extraOptsCount > 0 && <span className="chip accent small">{extraOptsCount}</span>}
                   <Icon icon={ChevronDown} size={15} className={showMoreOpts ? "flip" : undefined} />
                 </button>
@@ -413,10 +414,10 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                   <button
                     type="button"
                     onClick={() => setBrightPaper((b) => !b)}
-                    title={brightPaper ? "Önizlemeyi koyu tema için yumuşat" : "Gerçek beyaz baskı kağıdı görünümü"}
+                    title={brightPaper ? t("Önizlemeyi koyu tema için yumuşat") : t("Gerçek beyaz baskı kağıdı görünümü")}
                   >
                     <Icon icon={brightPaper ? Moon : Sun} size={16} />
-                    {brightPaper ? "Yumuşat" : "Parlak kağıt"}
+                    {brightPaper ? t("Yumuşat") : t("Parlak kağıt")}
                   </button>
                 )}
               </div>
@@ -437,30 +438,30 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                 }}
               >
                 <Icon icon={FileDown} />
-                {job.running ? "PDF oluşturuluyor…" : "PDF oluştur"}
+                {job.running ? t("PDF oluşturuluyor…") : t("PDF oluştur")}
               </button>
             </div>
             {showMoreOpts && (
               <div className="md-options">
                 {(
                   [
-                    ["landscape", "Yön", "Yatay", "Dikey"],
-                    ["toc", "İçindekiler", "Var", "Yok"],
-                    ["cover", "Kapak", "Var", "Yok"],
-                    ["page_numbers", "Sayfa no", "Var", "Yok"],
+                    ["landscape", t("Yön"), t("Yatay"), t("Dikey")],
+                    ["toc", t("İçindekiler"), t("Var"), t("Yok")],
+                    ["cover", t("Kapak"), t("Var"), t("Yok")],
+                    ["page_numbers", t("Sayfa no"), t("Var"), t("Yok")],
                   ] as const
                 ).map(([key, label, on, off]) => (
                   <label className="field" key={key}>
                     {label}
                     <select value={triState(opts[key])} onChange={(e) => set(key, fromTri(e.target.value))}>
-                      <option value="">Otomatik</option>
+                      <option value="">{t("Otomatik")}</option>
                       <option value="1">{on}</option>
                       <option value="0">{off}</option>
                     </select>
                   </label>
                 ))}
                 <label className="field">
-                  Kenar (mm)
+                  {t("Kenar (mm)")}
                   <input
                     className="input"
                     type="number"
@@ -472,14 +473,14 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                   />
                 </label>
                 <label className="field">
-                  Yazı (pt)
+                  {t("Yazı (pt)")}
                   <input
                     className="input"
                     type="number"
                     min={6}
                     max={24}
                     step={0.5}
-                    placeholder="tema"
+                    placeholder={t("tema")}
                     value={opts.font_size_pt ?? ""}
                     onChange={(e) => set("font_size_pt", e.target.value === "" ? null : Number(e.target.value))}
                   />
@@ -493,7 +494,7 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
             <section className="md-left">
               <div className="md-attach">
                 {attachments.length > 0 && (
-                  <ul className="chips" aria-label="Ekler">
+                  <ul className="chips" aria-label={t("Ekler")}>
                     {attachments.map((a) => (
                       <li key={a.id}>
                         <Icon icon={Paperclip} size={15} />
@@ -501,7 +502,7 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                         <button
                           type="button"
                           className="icon-button"
-                          aria-label={`${a.name} çıkar`}
+                          aria-label={t("{ad} çıkar", { ad: a.name })}
                           onClick={() => setAttachments((all) => all.filter((x) => x.id !== a.id))}
                         >
                           <Icon icon={X} size={16} />
@@ -517,11 +518,11 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                   disabled={uploading}
                   title={
                     uploading ? (
-                      "Yükleniyor…"
+                      t("Yükleniyor…")
                     ) : (
                       <>
                         <Icon icon={Plus} size={16} />
-                        Resim / başka not ekle
+                        {t("Resim / başka not ekle")}
                       </>
                     )
                   }
@@ -534,30 +535,30 @@ export default function Markdown({ route, engines }: { route: Route; engines: En
                   spellCheck={false}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  aria-label="Markdown metni"
+                  aria-label={t("Markdown metni")}
                 />
               )}
               <p className="md-save-line small">
                 {dirty ? (
                   <span className="warn-line">
                     <Icon icon={CircleDot} size={14} />
-                    Kaydedilmemiş değişiklik var (taslak bu tarayıcıda tutuluyor).
+                    {t("Kaydedilmemiş değişiklik var (taslak bu tarayıcıda tutuluyor).")}
                   </span>
                 ) : (
-                  <span className="muted">Değişiklik yok.</span>
+                  <span className="muted">{t("Değişiklik yok.")}</span>
                 )}
                 <button type="button" className="link-button" onClick={downloadNote}>
                   <Icon icon={Download} size={15} />
-                  Notu indir (.md)
+                  {t("Notu indir (.md)")}
                 </button>
               </p>
             </section>
 
-            <section className={`md-preview${brightPaper ? " bright-paper" : ""}`} aria-label="Önizleme">
+            <section className={`md-preview${brightPaper ? " bright-paper" : ""}`} aria-label={t("Önizleme")}>
               {previewError && <div className="banner error">{previewError}</div>}
               {preview && preview.warnings.length > 0 && (
                 <details className="warnings">
-                  <summary>{preview.warnings.length} uyarı</summary>
+                  <summary>{t("{n} uyarı", { n: preview.warnings.length })}</summary>
                   <ul>
                     {preview.warnings.map((w) => (
                       <li key={w}>{w}</li>

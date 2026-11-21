@@ -29,13 +29,14 @@ import { jobLabel } from "../labels";
 import { navigate } from "../router";
 import { toast } from "../toast";
 import { convertTargets, toolForRoute } from "../tools";
+import { locale, t } from "../i18n";
 
 const STATUS: Record<Job["status"], { label: string; tone: string; icon: LucideIcon }> = {
   bekliyor: { label: "Sırada", tone: "", icon: Hourglass },
   calisiyor: { label: "Çalışıyor", tone: "accent", icon: LoaderCircle },
   bitti: { label: "Tamam", tone: "ok", icon: Check },
   hata: { label: "Hata", tone: "bad", icon: CircleX },
-  iptal: { label: "İptal", tone: "", icon: Ban },
+  iptal: { label: "İptal edildi", tone: "", icon: Ban },
 };
 
 // İş türü → aracın rotası (ikon ve grup tonu oradan). Motor kurulumu bir araç değil.
@@ -75,8 +76,8 @@ function typeLabel(f: FileMeta): string {
   return ext.slice(0, 4).toLocaleUpperCase("tr");
 }
 
-const time = (t: number) =>
-  new Date(t * 1000).toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const time = (seconds: number) =>
+  new Date(seconds * 1000).toLocaleString(locale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 /** Satır içi yeniden adlandırma: Enter kaydeder, Esc vazgeçer. Uzantı ayrı tutulur (yanlışlıkla
  * silinip dosya türü bozulmasın); kullanıcı uzantıyı yazarsa sunucu yine doğru olanı korur. */
@@ -93,7 +94,7 @@ function RenameField({ file, onDone }: { file: FileMeta; onDone: (renamed: boole
     setBusy(true);
     try {
       const meta = await api.rename(file.id, `${name}${ext}`);
-      toast.ok(`Yeni ad: ${meta.name}`);
+      toast.ok(t("Yeni ad: {ad}", { ad: meta.name }));
       onDone(true);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -113,7 +114,7 @@ function RenameField({ file, onDone }: { file: FileMeta; onDone: (renamed: boole
       <input
         ref={input}
         className="input"
-        aria-label={`'${file.name}' için yeni ad`}
+        aria-label={t("'{ad}' için yeni ad", { ad: file.name })}
         value={stem}
         maxLength={180}
         disabled={busy}
@@ -127,10 +128,10 @@ function RenameField({ file, onDone }: { file: FileMeta; onDone: (renamed: boole
       />
       {ext && <span className="muted">{ext}</span>}
       <button type="submit" className="small" disabled={busy}>
-        Kaydet
+        {t("Kaydet")}
       </button>
       <button type="button" className="link-button" onClick={() => onDone(false)}>
-        Vazgeç
+        {t("Vazgeç")}
       </button>
     </form>
   );
@@ -174,14 +175,24 @@ export default function Jobs() {
     }
   };
 
-  const retentionText =
-    retention === null ? "" : retention % 24 === 0 ? `${retention / 24} günden` : `${retention} saatten`;
+  const retentionNote =
+    retention === null
+      ? null
+      : retention % 24 === 0
+        ? t(
+            "{n} günden uzun süre açılmamış dosyalar otomatik silinir; saklamak istediklerini sabitle (süre Ayarlar'dan değişir).",
+            { n: retention / 24 },
+          )
+        : t(
+            "{n} saatten uzun süre açılmamış dosyalar otomatik silinir; saklamak istediklerini sabitle (süre Ayarlar'dan değişir).",
+            { n: retention },
+          );
 
   return (
     <div className="jobs">
       <header className="screen-head">
-        <h1>İşler ve dosyalar</h1>
-        <p>Son işlerin ve dosyaların: indir, yeniden adlandır, saklamak istediklerini sabitle.</p>
+        <h1>{t("İşler ve dosyalar")}</h1>
+        <p>{t("Son işlerin ve dosyaların: indir, yeniden adlandır, saklamak istediklerini sabitle.")}</p>
       </header>
       {error && (
         <div className="banner error" role="alert">
@@ -191,16 +202,16 @@ export default function Jobs() {
 
       <section className="card" aria-labelledby="son-isler">
         <div className="section-head">
-          <h2 id="son-isler">Son işler</h2>
+          <h2 id="son-isler">{t("Son işler")}</h2>
         </div>
         {jobs.length === 0 ? (
           <div className="empty-state">
             <span className="tile lg">
               <Icon icon={Inbox} size={25} strokeWidth={1.9} />
             </span>
-            <p className="empty-title">Henüz iş yok.</p>
+            <p className="empty-title">{t("Henüz iş yok.")}</p>
             <p className="muted small">
-              Bir araçla dosya işlediğinde burada görünür; bitenlerin çıktısını buradan da indirirsin.
+              {t("Bir araçla dosya işlediğinde burada görünür; bitenlerin çıktısını buradan da indirirsin.")}
             </p>
           </div>
         ) : (
@@ -219,7 +230,7 @@ export default function Jobs() {
                       <details className="job-warnings">
                         <summary className="warn-line">
                           <Icon icon={ChevronRight} size={14} className="job-warnings-caret" />
-                          {j.warnings.length} uyarı
+                          {t("{n} uyarı", { n: j.warnings.length })}
                         </summary>
                         <ul>
                           {j.warnings.map((w) => (
@@ -239,14 +250,14 @@ export default function Jobs() {
                       {j.files.length > 4 && (
                         <a href={api.zipUrl(j.files.map((f) => f.id))} className="job-file">
                           <Icon icon={Archive} size={15} />
-                          <span>+{j.files.length - 4} dosya (ZIP)</span>
+                          <span>{t("+{n} dosya (ZIP)", { n: j.files.length - 4 })}</span>
                         </a>
                       )}
                     </span>
                   </div>
                   <span className={`chip small job-state${st.tone ? ` ${st.tone}` : ""}`}>
                     <Icon icon={st.icon} size={14} className={j.status === "calisiyor" ? "spin" : undefined} />
-                    {st.label}
+                    {t(st.label)}
                   </span>
                 </li>
               );
@@ -257,23 +268,22 @@ export default function Jobs() {
 
       <section className="card" aria-labelledby="dosyalar">
         <div className="section-head">
-          <h2 id="dosyalar">Dosyalar</h2>
+          <h2 id="dosyalar">{t("Dosyalar")}</h2>
         </div>
         <p className="files-note">
-          {retentionText &&
-            `${retentionText} uzun süre açılmamış dosyalar otomatik silinir; saklamak istediklerini sabitle (süre Ayarlar'dan değişir). `}
-          Dosyalar yalnızca bu bilgisayarda durur.
+          {retentionNote && <>{retentionNote} </>}
+          {t("Dosyalar yalnızca bu bilgisayarda durur.")}
         </p>
         {files.length === 0 ? (
           <div className="empty-state">
             <span className="tile lg">
               <Icon icon={FolderOpen} size={25} strokeWidth={1.9} />
             </span>
-            <p className="empty-title">Dosya yok.</p>
-            <p className="muted small">Ana sayfaya bir dosya bırak; yüklediklerin ve araçların ürettikleri burada listelenir.</p>
+            <p className="empty-title">{t("Dosya yok.")}</p>
+            <p className="muted small">{t("Ana sayfaya bir dosya bırak; yüklediklerin ve araçların ürettikleri burada listelenir.")}</p>
             <a className="button" href="#/araclar">
               <Icon icon={Upload} size={17} />
-              Dosya bırak
+              {t("Dosya bırak")}
             </a>
           </div>
         ) : (
@@ -281,12 +291,12 @@ export default function Jobs() {
             <table className="file-table">
               <thead>
                 <tr>
-                  <th>Ad</th>
-                  <th>Boyut</th>
-                  <th>Sürüm</th>
-                  <th>Tarih</th>
+                  <th>{t("Ad")}</th>
+                  <th>{t("Boyut")}</th>
+                  <th>{t("Sürüm")}</th>
+                  <th>{t("Tarih")}</th>
                   <th>
-                    <span className="sr-only">İşlemler</span>
+                    <span className="sr-only">{t("İşlemler")}</span>
                   </th>
                 </tr>
               </thead>
@@ -310,24 +320,24 @@ export default function Jobs() {
                           <span className="file-cell-text">
                             <span className="file-cell-name">
                               {f.pinned && (
-                                <span className="pin-mark" title="Sabitlendi">
-                                  <Icon icon={Pin} size={14} label="Sabitlendi" />
+                                <span className="pin-mark" title={t("Sabitlendi")}>
+                                  <Icon icon={Pin} size={14} label={t("Sabitlendi")} />
                                 </span>
                               )}
                               {f.name}
                             </span>
-                            {f.page_count ? <span className="file-cell-meta">{f.page_count} sayfa</span> : null}
+                            {f.page_count ? <span className="file-cell-meta">{t("{n} sayfa", { n: f.page_count })}</span> : null}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="muted" data-label="Boyut">
+                    <td className="muted" data-label={t("Boyut")}>
                       {formatSize(f.size)}
                     </td>
-                    <td className="muted" data-label="Sürüm">
+                    <td className="muted" data-label={t("Sürüm")}>
                       {f.kind === "pdf" || f.version > 1 ? f.version : "—"}
                     </td>
-                    <td className="muted" data-label="Tarih">
+                    <td className="muted" data-label={t("Tarih")}>
                       {time(f.updated)}
                     </td>
                     <td className="row-actions">
@@ -335,40 +345,40 @@ export default function Jobs() {
                         <button
                           type="button"
                           className="icon-button row-primary-action"
-                          aria-label="Düzenle"
-                          title="Düzenleyicide aç"
+                          aria-label={t("Düzenle")}
+                          title={t("Düzenleyicide aç")}
                           onClick={() => navigate(`duzenle/${f.id}`)}
                         >
                           <Icon icon={LayoutGrid} />
-                          <span className="action-mobile-label" aria-hidden="true">Düzenle</span>
+                          <span className="action-mobile-label" aria-hidden="true">{t("Düzenle")}</span>
                         </button>
                       )}
                       {convertTargets(f.name).length > 0 && (
                         <button
                           type="button"
                           className="icon-button row-primary-action"
-                          aria-label={`${f.name} dönüştür`}
-                          title="Başka biçime dönüştür…"
+                          aria-label={t("{ad} dönüştür", { ad: f.name })}
+                          title={t("Başka biçime dönüştür…")}
                           onClick={() => navigate("donustur", { dosya: f.id })}
                         >
                           <Icon icon={ArrowLeftRight} />
-                          <span className="action-mobile-label" aria-hidden="true">Dönüştür</span>
+                          <span className="action-mobile-label" aria-hidden="true">{t("Dönüştür")}</span>
                         </button>
                       )}
                       <a
                         className="icon-button row-primary-action"
                         href={api.downloadUrl(f.id)}
-                        aria-label={`${f.name} indir`}
-                        title="İndir"
+                        aria-label={t("{ad} indir", { ad: f.name })}
+                        title={t("İndir")}
                       >
                         <Icon icon={Download} />
-                        <span className="action-mobile-label" aria-hidden="true">İndir</span>
+                        <span className="action-mobile-label" aria-hidden="true">{t("İndir")}</span>
                       </a>
                       <button
                         type="button"
                         className="icon-button"
-                        aria-label={`${f.name} yeniden adlandır`}
-                        title="Yeniden adlandır"
+                        aria-label={t("{ad} yeniden adlandır", { ad: f.name })}
+                        title={t("Yeniden adlandır")}
                         onClick={() => setRenaming(f.id)}
                       >
                         <Icon icon={TextCursorInput} />
@@ -377,8 +387,8 @@ export default function Jobs() {
                         <button
                           type="button"
                           className="icon-button"
-                          aria-label="Klasörde göster"
-                          title="Dosyanın bir kopyasını gerçek adıyla Gezgin'de gösterir"
+                          aria-label={t("Klasörde göster")}
+                          title={t("Dosyanın bir kopyasını gerçek adıyla Gezgin'de gösterir")}
                           onClick={() => void act(() => api.reveal(f.id))}
                         >
                           <Icon icon={FolderOpen} />
@@ -387,8 +397,8 @@ export default function Jobs() {
                       <button
                         type="button"
                         className={`icon-button${f.pinned ? " pinned" : ""}`}
-                        aria-label={f.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}
-                        title={f.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}
+                        aria-label={t(f.pinned ? "Sabitlemeyi kaldır" : "Sabitle")}
+                        title={t(f.pinned ? "Sabitlemeyi kaldır" : "Sabitle")}
                         onClick={() => act(() => api.pin(f.id, !f.pinned))}
                       >
                         <Icon icon={f.pinned ? PinOff : Pin} />
@@ -396,8 +406,8 @@ export default function Jobs() {
                       <button
                         type="button"
                         className="icon-button file-delete"
-                        aria-label="Sil"
-                        title="Sil"
+                        aria-label={t("Sil")}
+                        title={t("Sil")}
                         onClick={() => setDeleting(f)}
                       >
                         <Icon icon={Trash2} />
@@ -411,13 +421,13 @@ export default function Jobs() {
         )}
       </section>
       {deleting && (
-        <Modal title="Dosya silinsin mi?" onClose={() => setDeleting(null)}>
+        <Modal title={t("Dosya silinsin mi?")} onClose={() => setDeleting(null)}>
           <p>
-            <strong className="break">{deleting.name}</strong> kalıcı olarak silinecek; geri alınamaz.
+            <strong className="break">{deleting.name}</strong> {t("kalıcı olarak silinecek; geri alınamaz.")}
           </p>
           <div className="modal-actions">
             <button type="button" data-autofocus onClick={() => setDeleting(null)}>
-              Vazgeç
+              {t("Vazgeç")}
             </button>
             <button
               type="button"
@@ -425,11 +435,11 @@ export default function Jobs() {
               onClick={() => {
                 const target = deleting;
                 setDeleting(null);
-                void act(() => api.remove(target.id), `'${target.name}' silindi.`);
+                void act(() => api.remove(target.id), t("'{ad}' silindi.", { ad: target.name }));
               }}
             >
               <Icon icon={Trash2} size={17} />
-              Sil
+              {t("Sil")}
             </button>
           </div>
         </Modal>

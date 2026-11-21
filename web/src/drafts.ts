@@ -1,3 +1,4 @@
+import { locale } from "./i18n";
 /** Markdown taslakları: sekme kapanır ya da tarayıcı çökerse yazılan not kaybolmasın.
  *
  * Tarayıcının yerel deposunda (bu bilgisayarda, bu tarayıcı profilinde) tutulur; sunucuya
@@ -42,5 +43,5 @@ export const drafts = {
 export const draftKey = (fileId: string | null | undefined) => fileId ?? "yeni";
 
 export function formatDraftTime(at: number): string {
-  return new Date(at).toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return new Date(at).toLocaleString(locale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }

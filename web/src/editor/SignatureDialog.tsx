@@ -4,6 +4,7 @@ import SignaturePad from "signature_pad";
 import { api, errorMessage, type FileMeta } from "../api";
 import Icon from "../components/Icon";
 import Modal from "../components/Modal";
+import { t } from "../i18n";
 
 type Tab = "kayitli" | "ciz" | "yukle";
 
@@ -94,14 +95,14 @@ export default function SignatureDialog({ onPick, onClose }: Props) {
   };
 
   return (
-    <Modal title="İmza ekle" onClose={onClose} wide>
+    <Modal title={t("İmza ekle")} onClose={onClose} wide>
       <div className="sig-dialog">
         <div className="tabs seg-track" role="tablist">
           {(
             [
-              ["kayitli", `İmzalarım${list ? ` (${list.length})` : ""}`],
-              ["ciz", "Çiz"],
-              ["yukle", "Resimden yükle"],
+              ["kayitli", list ? t("İmzalarım ({n})", { n: list.length }) : t("İmzalarım")],
+              ["ciz", t("Çiz")],
+              ["yukle", t("Resimden yükle")],
             ] as [Tab, string][]
           ).map(([value, label]) => (
             <button
@@ -122,50 +123,50 @@ export default function SignatureDialog({ onPick, onClose }: Props) {
             <ul className="signature-grid">
               {list.map((s) => (
                 <li key={s.id}>
-                  <button type="button" className="signature-tile" onClick={() => onPick(s)} title="Bu imzayı ekle">
+                  <button type="button" className="signature-tile" onClick={() => onPick(s)} title={t("Bu imzayı ekle")}>
                     <img src={api.rawUrl(s.id)} alt={s.name} />
                   </button>
                   {confirmDeleteId === s.id ? (
                     <span className="sig-confirm">
                       <button type="button" className="link-button danger small" onClick={() => void remove(s)}>
-                        Silinsin
+                        {t("Silinsin")}
                       </button>
                       <button type="button" className="link-button small" onClick={() => setConfirmDeleteId(null)}>
-                        Vazgeç
+                        {t("Vazgeç")}
                       </button>
                     </span>
                   ) : (
                     <button type="button" className="link-button danger small" onClick={() => setConfirmDeleteId(s.id)}>
-                      Sil
+                      {t("Sil")}
                     </button>
                   )}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="muted">{list ? "Henüz kayıtlı imza yok. Çiz ya da resimden yükle." : "Yükleniyor…"}</p>
+            <p className="muted">{list ? t("Henüz kayıtlı imza yok. Çiz ya da resimden yükle.") : t("Yükleniyor…")}</p>
           ))}
 
         {tab === "ciz" && (
           <>
-            <canvas ref={canvasRef} className="signature-pad" aria-label="İmza çizim alanı" />
+            <canvas ref={canvasRef} className="signature-pad" aria-label={t("İmza çizim alanı")} />
             <div className="modal-actions spread">
               <span className="tool-cluster">
                 {INKS.map((i) => (
                   <label key={i.value} className="check ink">
                     <input type="radio" name="ink" checked={ink === i.value} onChange={() => setInk(i.value)} />
                     <span className="ink-dot" style={{ background: i.value }} />
-                    {i.label}
+                    {t(i.label)}
                   </label>
                 ))}
                 <button type="button" onClick={() => (padRef.current?.clear(), setEmpty(true))}>
                   <Icon icon={Eraser} size={17} />
-                  Temizle
+                  {t("Temizle")}
                 </button>
               </span>
               <button type="button" className="primary" disabled={empty || busy} onClick={() => void saveDrawing()}>
                 <Icon icon={Check} />
-                Kaydet ve ekle
+                {t("Kaydet ve ekle")}
               </button>
             </div>
           </>
@@ -174,12 +175,11 @@ export default function SignatureDialog({ onPick, onClose }: Props) {
         {tab === "yukle" && (
           <div className="sig-upload">
             <p className="muted small">
-              Beyaz kâğıda atılmış imzanın fotoğrafı ya da taraması. Kâğıt otomatik saydamlaştırılır, kenar boşlukları
-              kırpılır.
+              {t("Beyaz kâğıda atılmış imzanın fotoğrafı ya da taraması. Kâğıt otomatik saydamlaştırılır, kenar boşlukları kırpılır.")}
             </p>
             <label className="button">
               <Icon icon={Upload} />
-              Resim seç
+              {t("Resim seç")}
               <input
                 className="sr-only"
                 type="file"
@@ -195,7 +195,7 @@ export default function SignatureDialog({ onPick, onClose }: Props) {
           </div>
         )}
 
-        <p className="muted small">İmzalar bu bilgisayarda kalıcı saklanır (otomatik temizlik silmez).</p>
+        <p className="muted small">{t("İmzalar bu bilgisayarda kalıcı saklanır (otomatik temizlik silmez).")}</p>
         {error && <p className="error-text">{error}</p>}
       </div>
     </Modal>

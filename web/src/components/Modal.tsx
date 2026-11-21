@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { t } from "../i18n";
 import Icon from "./Icon";
 
 interface Props {
@@ -60,7 +61,7 @@ export default function Modal({ title, onClose, children, wide, busy = false }: 
     >
       <div className="modal-head">
         <h2 id={titleId}>{title}</h2>
-        <button type="button" className="icon-button" aria-label="Kapat" onClick={onClose} disabled={busy}>
+        <button type="button" className="icon-button" aria-label={t("Kapat")} onClick={onClose} disabled={busy}>
           <Icon icon={X} />
         </button>
       </div>

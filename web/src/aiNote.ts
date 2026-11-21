@@ -1,13 +1,14 @@
+import { t } from "./i18n";
+
 /** "Formülleri onar": ChatGPT gibi araçlardan yapıştırılan notlardaki \( … \) ve \[ … \]
  * formüllerini $ … $ / $$ … $$ biçimine çevirir, blok formüllerin boş satırlarını düzeltir. Kod
  * blokları ve satır içi kod atlanır. Önizleme bu ayraçları zaten tanır; düzeltme notun kendisi
  * içindir (indirilen .md Obsidian gibi başka programlarda da doğru görünsün). */
 
 /** Düğmenin ipucu ve ekran okuyucu açıklaması. */
-export const FORMULA_FIX_HINT =
-  "ChatGPT gibi yapay zekâ araçlarından yapıştırılan notlardaki \\( … \\) ve \\[ … \\] formüllerini " +
-  "$ … $ ve $$ … $$ biçimine çevirir, blok formüllerin boş satırlarını düzeltir. Not, Obsidian gibi " +
-  "başka programlarda da doğru görünür. Ctrl+Z ile geri alınır.";
+export const FORMULA_FIX_HINT = t(
+  "ChatGPT gibi yapay zekâ araçlarından yapıştırılan notlardaki \\( … \\) ve \\[ … \\] formüllerini $ … $ ve $$ … $$ biçimine çevirir, blok formüllerin boş satırlarını düzeltir. Not, Obsidian gibi başka programlarda da doğru görünür. Ctrl+Z ile geri alınır.",
+);
 
 interface TextChunk {
   isCode: boolean;
@@ -286,16 +287,16 @@ export function formulaFixMessage({ converted, changed }: { converted: number; c
   if (!changed) {
     return {
       kind: "info",
-      text:
-        "Onarılacak formül yok: notta \\( … \\) ya da \\[ … \\] biçiminde yazılmış formül bulunamadı. " +
-        "$ … $ ve $$ … $$ ile yazılmış formüller zaten doğru.",
+      text: t(
+        "Onarılacak formül yok: notta \\( … \\) ya da \\[ … \\] biçiminde yazılmış formül bulunamadı. $ … $ ve $$ … $$ ile yazılmış formüller zaten doğru.",
+      ),
     };
   }
   return {
     kind: "ok",
     text:
       converted > 0
-        ? `Formüller onarıldı: ${converted} formül $ … $ / $$ … $$ biçimine çevrildi. Geri almak için Ctrl+Z.`
-        : "Blok formüllerin ($$ … $$) çevresindeki boş satırlar düzeltildi. Geri almak için Ctrl+Z.",
+        ? t("Formüller onarıldı: {n} formül $ … $ / $$ … $$ biçimine çevrildi. Geri almak için Ctrl+Z.", { n: converted })
+        : t("Blok formüllerin ($$ … $$) çevresindeki boş satırlar düzeltildi. Geri almak için Ctrl+Z."),
   };
 }

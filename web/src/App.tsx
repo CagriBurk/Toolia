@@ -22,6 +22,7 @@ import Welcome from "./pages/Welcome";
 import { navigate, useRoute } from "./router";
 import { toast } from "./toast";
 import { TOOLS } from "./tools";
+import { t } from "./i18n";
 
 // pdf.js büyük; yalnızca düzenleyici açılınca yüklensin.
 const Organizer = lazy(() => import("./pages/Organizer"));
@@ -40,9 +41,9 @@ const NAV = [
 /** Ekranın başlığı (sekme / pencere başlığı; ekran okuyucu ekran değişimini buradan duyar). */
 function titleFor(section: string): string {
   const nav = NAV.find((n) => n.route === section)?.label;
-  const tool = TOOLS.find((t) => t.route === section)?.title;
+  const tool = TOOLS.find((item) => item.route === section)?.title;
   const name = nav ?? tool ?? (section === "araclar" ? "Araçlar" : null);
-  return name ? `${name} · Toolia` : "Toolia";
+  return name ? `${t(name)} · Toolia` : "Toolia";
 }
 
 export default function App() {
@@ -84,7 +85,7 @@ export default function App() {
           .catch(() => undefined);
         return loadEngines();
       })
-      .catch((e) => setError(`Sunucuya ulaşılamadı: ${errorMessage(e)}`));
+      .catch((e) => setError(t("Sunucuya ulaşılamadı: {m}", { m: errorMessage(e) })));
   }, []);
 
   // Yakalanmamış hata (ör. bir düğmenin işi): sessizce kaybolmasın, bildirim olarak görünsün.
@@ -128,13 +129,13 @@ export default function App() {
     content = <Welcome engines={engines} onRefresh={() => void loadEngines(true)} onDone={finishWelcome} />;
   else if (section === "duzenle")
     content = (
-      <Suspense fallback={<p className="muted">Düzenleyici yükleniyor…</p>}>
+      <Suspense fallback={<p className="muted">{t("Düzenleyici yükleniyor…")}</p>}>
         <Organizer key={id ?? "yeni"} fileId={id} />
       </Suspense>
     );
   else if (section === "editor")
     content = (
-      <Suspense fallback={<p className="muted">Editör yükleniyor…</p>}>
+      <Suspense fallback={<p className="muted">{t("Editör yükleniyor…")}</p>}>
         <Editor key={id ?? "yeni"} fileId={id} />
       </Suspense>
     );
@@ -190,7 +191,7 @@ export default function App() {
   return (
     <div className={`shell${["duzenle", "md", "editor"].includes(section) ? " wide" : ""}`}>
       <a className="skip-link" href="#icerik" onClick={(e) => (e.preventDefault(), main.current?.focus())}>
-        İçeriğe geç
+        {t("İçeriğe geç")}
       </a>
       <TopBar section={section} lan={!!settings?.running.lan} onSearch={openSearch} />
       <main id="icerik" ref={main} tabIndex={-1}>

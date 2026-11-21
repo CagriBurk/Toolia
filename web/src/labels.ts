@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 /** İş türlerinin Türkçe adları. Arka uçtaki her iş türünün (`jobs/models.py` JobRequest) burada
  * adı olmalı: tests/test_settings_api.py bunu denetler. */
 export const JOB_TYPE_LABEL: Record<string, string> = {
@@ -27,7 +29,7 @@ const ENGINE_NAME: Record<string, string> = { libreoffice: "LibreOffice" };
 /** İşin ekranda görünen adı. Bilinmeyen türde (yeni sürümden kalmış kayıt) ham ad. */
 export function jobLabel(type: string, request?: Record<string, unknown>): string {
   if (type === "install_engine" && typeof request?.engine === "string") {
-    return `${ENGINE_NAME[request.engine] ?? request.engine} kurulumu`;
+    return t("{ad} kurulumu", { ad: ENGINE_NAME[request.engine] ?? request.engine });
   }
-  return JOB_TYPE_LABEL[type] ?? type;
+  return t(JOB_TYPE_LABEL[type] ?? type);
 }

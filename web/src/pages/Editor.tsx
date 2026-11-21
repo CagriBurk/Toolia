@@ -53,6 +53,7 @@ import { passwords } from "../passwords";
 import { forgetPdf, openPdf } from "../pdf";
 import { navigate, useLeaveGuard } from "../router";
 import { ACCEPT } from "../tools";
+import { t } from "../i18n";
 
 const TOOL_GROUPS: Tool[][] = [
   ["select"],
@@ -81,7 +82,7 @@ function loadImageSize(url: string): Promise<{ w: number; h: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-    img.onerror = () => reject(new Error("Resim açılamadı."));
+    img.onerror = () => reject(new Error(t("Resim açılamadı.")));
     img.src = url;
   });
 }
@@ -149,7 +150,7 @@ export default function Editor({ fileId }: { fileId?: string }) {
       setError(null);
       try {
         const m = await api.file(id);
-        if (m.kind !== "pdf") throw new Error(`'${m.name}' bir PDF değil.`);
+        if (m.kind !== "pdf") throw new Error(t("'{name}' bir PDF değil.", { name: m.name }));
         if (m.encrypted && !passwords.get(m.id)) return setLocked(m);
         await open(m);
       } catch (e) {
@@ -267,11 +268,11 @@ export default function Editor({ fileId }: { fileId?: string }) {
     }
   };
 
-  const chooseTool = (t: Tool) => {
+  const chooseTool = (next: Tool) => {
     setSelectedId(null);
-    if (t === "image") imageInput.current?.click();
-    else if (t === "signature") setSigning(true);
-    else setTool(t);
+    if (next === "image") imageInput.current?.click();
+    else if (next === "signature") setSigning(true);
+    else setTool(next);
   };
 
   // Klavye: Delete sil, Esc bırak, Ctrl+Z / Ctrl+Y, oklar 1 nokta (Shift: 10) kaydırır.
@@ -348,7 +349,7 @@ export default function Editor({ fileId }: { fileId?: string }) {
           accept={ACCEPT.pdf}
           kind="pdf"
           multiple={false}
-          title="Düzenlenecek PDF'i bırak"
+          title={t("Düzenlenecek PDF'i bırak")}
           onAdd={([f]) => navigate(`editor/${f.id}`)}
         />
       </>
@@ -365,60 +366,60 @@ export default function Editor({ fileId }: { fileId?: string }) {
         {meta && (
           <>
             <span className="chip meta-chip">
-              {meta.name} · sürüm {meta.version}
+              {t("{name} · sürüm {version}", { name: meta.name, version: meta.version })}
             </span>
             {meta.version > 1 && (
               <button type="button" onClick={() => void undoVersion()} disabled={dirty}>
                 <Icon icon={History} size={16} />
-                Önceki sürüme dön
+                {t("Önceki sürüme dön")}
               </button>
             )}
             <button type="button" onClick={() => navigate(`duzenle/${meta.id}`)} disabled={dirty}>
               <Icon icon={LayoutGrid} size={16} />
-              Sayfa düzenleyicide aç
+              {t("Sayfa düzenleyicide aç")}
             </button>
             {dirty ? (
-              <button type="button" disabled title="İndirmeden önce değişiklikleri uygula">
+              <button type="button" disabled title={t("İndirmeden önce değişiklikleri uygula")}>
                 <Icon icon={Download} size={16} />
-                İndir
+                {t("İndir")}
               </button>
             ) : (
               <a className="button" href={api.downloadUrl(meta.id)}>
                 <Icon icon={Download} size={16} />
-                İndir
+                {t("İndir")}
               </a>
             )}
           </>
         )}
       </PageHeader>
 
-      <div ref={toolbarRef} className="toolbar" role="toolbar" aria-label="Editör araçları">
+      <div ref={toolbarRef} className="toolbar" role="toolbar" aria-label={t("Editör araçları")}>
         <div className="tool-groups">
           {TOOL_GROUPS.map((group, i) => (
             <div key={i} className="tool-cluster">
-              {group.map((t) => (
+              {group.map((tk) => (
                 <button
-                  key={t}
+                  key={tk}
                   type="button"
-                  className={`tool-button${tool === t ? " on" : ""}${t === "redact" ? " danger" : ""}`}
-                  aria-pressed={tool === t}
-                  onClick={() => chooseTool(t)}
-                  disabled={!doc || (t === "image" && uploading)}
+                  className={`tool-button${tool === tk ? " on" : ""}${tk === "redact" ? " danger" : ""}`}
+                  aria-pressed={tool === tk}
+                  onClick={() => chooseTool(tk)}
+                  disabled={!doc || (tk === "image" && uploading)}
                 >
-                  <Icon icon={TOOL_ICONS[t]} size={17} />
-                  {TOOL_LABELS[t]}
+                  <Icon icon={TOOL_ICONS[tk]} size={17} />
+                  {t(TOOL_LABELS[tk])}
                 </button>
               ))}
             </div>
           ))}
           <div className="tool-cluster">
-            <button type="button" onClick={undo} disabled={!past.length} title="Geri al (Ctrl+Z)">
+            <button type="button" onClick={undo} disabled={!past.length} title={t("Geri al (Ctrl+Z)")}>
               <Icon icon={Undo2} size={17} />
-              Geri
+              {t("Geri")}
             </button>
-            <button type="button" onClick={redo} disabled={!future.length} title="İleri (Ctrl+Y)">
+            <button type="button" onClick={redo} disabled={!future.length} title={t("İleri (Ctrl+Y)")}>
               <Icon icon={Redo2} size={17} />
-              İleri
+              {t("İleri")}
             </button>
           </div>
         </div>
@@ -428,8 +429,8 @@ export default function Editor({ fileId }: { fileId?: string }) {
         <p className="banner warn ed-note">
           <Icon icon={TriangleAlert} />
           <span>
-            <strong>Karartma</strong>: işaretlediğin alandaki yazı, resim pikselleri ve çizimler "Uygula" ile dosyadan
-            kalıcı olarak silinir. Şekillerle siyah kutu çizmek karartma değildir; alttaki yazı kopyalanabilir kalır.
+            <strong>{t("Karartma")}</strong>
+            {t(': işaretlediğin alandaki yazı, resim pikselleri ve çizimler "Uygula" ile dosyadan kalıcı olarak silinir. Şekillerle siyah kutu çizmek karartma değildir; alttaki yazı kopyalanabilir kalır.')}
           </span>
         </p>
       )}
@@ -437,8 +438,8 @@ export default function Editor({ fileId }: { fileId?: string }) {
         <p className="banner warn ed-note">
           <Icon icon={TriangleAlert} />
           <span>
-            <strong>Beyazla kapat</strong>: alandaki yazı silinir ve üstü boyanır (resim ve çizgiler yalnızca örtülür).
-            Düzeltilmiş metni Yazı aracıyla üstüne ekle. Bu, mevcut yazıyı yerinde düzenleme değildir.
+            <strong>{t("Beyazla kapat")}</strong>
+            {t(": alandaki yazı silinir ve üstü boyanır (resim ve çizgiler yalnızca örtülür). Düzeltilmiş metni Yazı aracıyla üstüne ekle. Bu, mevcut yazıyı yerinde düzenleme değildir.")}
           </span>
         </p>
       )}
@@ -446,7 +447,7 @@ export default function Editor({ fileId }: { fileId?: string }) {
         <div className="banner error" role="alert">
           {error}{" "}
           <button type="button" className="link-button" onClick={() => setError(null)}>
-            Kapat
+            {t("Kapat")}
           </button>
         </div>
       )}
@@ -454,7 +455,7 @@ export default function Editor({ fileId }: { fileId?: string }) {
       {job.error && !job.job && <JobPanel job={null} error={job.error} />}
 
       <div className="editor-layout">
-        <aside className="editor-pages" aria-label="Sayfalar">
+        <aside className="editor-pages" aria-label={t("Sayfalar")}>
           {meta &&
             Array.from({ length: pageCount }, (_, i) => (
               <button
@@ -481,7 +482,7 @@ export default function Editor({ fileId }: { fileId?: string }) {
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label="Önceki sayfa"
+                    aria-label={t("Önceki sayfa")}
                     onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
                     disabled={pageIndex === 0}
                   >
@@ -493,7 +494,7 @@ export default function Editor({ fileId }: { fileId?: string }) {
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label="Sonraki sayfa"
+                    aria-label={t("Sonraki sayfa")}
                     onClick={() => setPageIndex((p) => Math.min(pageCount - 1, p + 1))}
                     disabled={pageIndex >= pageCount - 1}
                   >
@@ -506,7 +507,7 @@ export default function Editor({ fileId }: { fileId?: string }) {
                     className="input narrow"
                     value={zoom}
                     onChange={(e) => setZoom(Number(e.target.value))}
-                    aria-label="Yakınlaştırma"
+                    aria-label={t("Yakınlaştırma")}
                   >
                     {ZOOMS.map((z) => (
                       <option key={z} value={z}>
@@ -542,10 +543,14 @@ export default function Editor({ fileId }: { fileId?: string }) {
               disabled={!dirty || job.running}
             >
               <Icon icon={Check} />
-              {job.running ? "Uygulanıyor…" : `Uygula${dirty ? ` (${objects.length})` : ""}`}
+              {job.running
+                ? t("Uygulanıyor…")
+                : dirty
+                  ? t("Uygula ({n})", { n: objects.length })
+                  : t("Uygula")}
             </button>
             <button type="button" className="block" onClick={() => apply("new")} disabled={!dirty || job.running}>
-              Yeni dosya olarak
+              {t("Yeni dosya olarak")}
             </button>
           </div>
           <aside className="editor-props options">
@@ -559,14 +564,15 @@ export default function Editor({ fileId }: { fileId?: string }) {
               />
             ) : (
               <div className="editor-props-empty">
-                <h2>Özellikler</h2>
+                <h2>{t("Özellikler")}</h2>
                 <div className="muted small">
                   <p>
-                    Bir araç seç ve sayfaya tıkla ya da sürükleyerek alan çiz. Nesneyi seçip taşı, köşelerinden
-                    boyutlandır; özellikleri burada değişir.
+                    {t(
+                      "Bir araç seç ve sayfaya tıkla ya da sürükleyerek alan çiz. Nesneyi seçip taşı, köşelerinden boyutlandır; özellikleri burada değişir.",
+                    )}
                   </p>
-                  <p>Delete: sil · Esc: bırak · oklar: kaydır (Shift ile 10) · Ctrl+Z / Ctrl+Y</p>
-                  {dirty && <p>{objects.length} değişiklik henüz uygulanmadı.</p>}
+                  <p>{t("Delete: sil · Esc: bırak · oklar: kaydır (Shift ile 10) · Ctrl+Z / Ctrl+Y")}</p>
+                  {dirty && <p>{t("{n} değişiklik henüz uygulanmadı.", { n: objects.length })}</p>}
                 </div>
               </div>
             )}
@@ -625,7 +631,7 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
   };
   const opacity = "opacity" in obj && (
     <label className="field">
-      Opaklık %{Math.round(obj.opacity * 100)}
+      {t("Opaklık %{p}", { p: Math.round(obj.opacity * 100) })}
       <input
         type="range"
         min={0.05}
@@ -640,11 +646,11 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
 
   return (
     <div className="props">
-      <h2>{obj.kind === "image" && obj.signature ? "İmza" : KIND_LABELS[obj.kind]}</h2>
+      <h2>{obj.kind === "image" && obj.signature ? t("İmza") : t(KIND_LABELS[obj.kind])}</h2>
       {obj.kind === "text" && (
         <>
           <label className="field">
-            Metin
+            {t("Metin")}
             <textarea
               ref={textRef}
               className="input"
@@ -654,7 +660,7 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
             />
           </label>
           <label className="field">
-            Font
+            {t("Font")}
             <select className="input" value={obj.font} onChange={(e) => setText({ font: e.target.value })}>
               {(fonts.length ? fonts : [{ key: obj.font, name: obj.font, bold: true }]).map((f) => (
                 <option key={f.key} value={f.key}>
@@ -665,7 +671,7 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
           </label>
           <div className="field-row">
             <label className="field">
-              Boyut
+              {t("Boyut")}
               <input
                 className="input narrow"
                 type="number"
@@ -676,7 +682,7 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
               />
             </label>
             <label className="field">
-              Renk
+              {t("Renk")}
               <input type="color" value={obj.color} onChange={(e) => setText({ color: e.target.value })} />
             </label>
             <label className="check">
@@ -686,16 +692,16 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
                 disabled={fontInfo ? !fontInfo.bold : false}
                 onChange={(e) => setText({ bold: e.target.checked })}
               />
-              Kalın
+              {t("Kalın")}
             </label>
           </div>
-          <div className="segmented seg-track" role="group" aria-label="Hizalama">
+          <div className="segmented seg-track" role="group" aria-label={t("Hizalama")}>
             {(
               [
-                ["left", "Sol"],
-                ["center", "Orta"],
-                ["right", "Sağ"],
-                ["justify", "İki yana"],
+                ["left", t("Sol")],
+                ["center", t("Orta")],
+                ["right", t("Sağ")],
+                ["justify", t("İki yana")],
               ] as [Align, string][]
             ).map(([a, label]) => (
               <button key={a} type="button" className={obj.align === a ? "on" : undefined} onClick={() => setText({ align: a })}>
@@ -709,19 +715,21 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
       {obj.kind === "image" && opacity}
       {(obj.kind === "highlight" || obj.kind === "redact" || obj.kind === "whiteout") && (
         <label className="field">
-          Renk
+          {t("Renk")}
           <input type="color" value={obj.color} onChange={(e) => onChange({ ...obj, color: e.target.value })} />
         </label>
       )}
-      {obj.kind === "highlight" && <p className="muted small">Altındaki yazı satırları vurgulanır; yazı yoksa kutunun kendisi.</p>}
+      {obj.kind === "highlight" && (
+        <p className="muted small">{t("Altındaki yazı satırları vurgulanır; yazı yoksa kutunun kendisi.")}</p>
+      )}
       {obj.kind === "redact" && (
-        <p className="muted small">Uygulandığında bu alandaki içerik dosyadan kalıcı olarak silinir.</p>
+        <p className="muted small">{t("Uygulandığında bu alandaki içerik dosyadan kalıcı olarak silinir.")}</p>
       )}
       {(obj.kind === "rect" || obj.kind === "ellipse") && (
         <>
           <div className="field-row">
             <label className="field">
-              Çizgi
+              {t("Çizgi")}
               <input
                 type="color"
                 value={obj.stroke ?? "#d00000"}
@@ -736,12 +744,12 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
                 disabled={!obj.fill}
                 onChange={(e) => onChange({ ...obj, stroke: e.target.checked ? null : "#d00000" })}
               />
-              Yok
+              {t("Yok")}
             </label>
           </div>
           <div className="field-row">
             <label className="field">
-              Dolgu
+              {t("Dolgu")}
               <input
                 type="color"
                 value={obj.fill ?? "#ffffff"}
@@ -756,7 +764,7 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
                 disabled={!obj.stroke}
                 onChange={(e) => onChange({ ...obj, fill: e.target.checked ? null : "#ffe066" })}
               />
-              Yok
+              {t("Yok")}
             </label>
           </div>
         </>
@@ -765,12 +773,12 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
         <>
           {(obj.kind === "line" || obj.kind === "arrow") && (
             <label className="field">
-              Renk
+              {t("Renk")}
               <input type="color" value={obj.stroke} onChange={(e) => onChange({ ...obj, stroke: e.target.value })} />
             </label>
           )}
           <label className="field">
-            Kalınlık
+            {t("Kalınlık")}
             <input
               className="input narrow"
               type="number"
@@ -786,7 +794,7 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
       )}
       {canRotate(obj) && isBox(obj) && (
         <label className="field">
-          Açı (saat yönünde)
+          {t("Açı (saat yönünde)")}
           <input
             className="input narrow"
             type="number"
@@ -798,7 +806,7 @@ function Properties({ obj, fonts, textRef, onChange, onRemove }: PropsPanel) {
       )}
       <button type="button" className="danger block" onClick={onRemove}>
         <Icon icon={Trash2} size={17} />
-        Sil
+        {t("Sil")}
       </button>
     </div>
   );

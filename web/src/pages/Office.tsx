@@ -6,6 +6,7 @@ import InstallLibreOffice from "../components/InstallLibreOffice";
 import PageHeader from "../components/PageHeader";
 import SortableList from "../components/SortableList";
 import { useFiles, useJob } from "../hooks";
+import { t } from "../i18n";
 import { idsFrom, type Route } from "../router";
 import { ACCEPT } from "../tools";
 
@@ -38,7 +39,7 @@ export default function Office({ route, engines, onEnginesChanged }: Props) {
         <div className="tool-main">
           {lo && !lo.ok && needsLo && (
             <div className="banner error">
-              LibreOffice bulunamadı; Word/Excel/PowerPoint dosyaları çevrilemez. HTML ve TXT çevrilebilir.
+              {t("LibreOffice bulunamadı; Word/Excel/PowerPoint dosyaları çevrilemez. HTML ve TXT çevrilebilir.")}
               {engines?.windows ? (
                 <InstallLibreOffice onInstalled={onEnginesChanged} />
               ) : (
@@ -50,7 +51,7 @@ export default function Office({ route, engines, onEnginesChanged }: Props) {
             count={files.length}
             hint={
               files.length > 0 &&
-              (merge ? "Birleştirme sırası bu listedeki sıradır; sürükleyerek değiştir." : "Her dosya ayrı bir PDF olur.")
+              (merge ? t("Birleştirme sırası bu listedeki sıradır; sürükleyerek değiştir.") : t("Her dosya ayrı bir PDF olur."))
             }
           >
             {files.length > 0 && (
@@ -67,36 +68,42 @@ export default function Office({ route, engines, onEnginesChanged }: Props) {
               accept={ACCEPT.office}
               kind={KINDS}
               compact={files.length > 0}
-              title={files.length ? "Dosya ekle" : "Word, Excel, PowerPoint, ODT, RTF, HTML ya da TXT dosyalarını bırak"}
+              title={files.length ? t("Dosya ekle") : t("Word, Excel, PowerPoint, ODT, RTF, HTML ya da TXT dosyalarını bırak")}
               onAdd={(added) => setFiles((f) => [...f, ...added])}
             />
           </FilesCard>
           <section className="card">
-            <h2>Seçenekler</h2>
+            <h2>{t("Seçenekler")}</h2>
             <label className="check">
               <input type="checkbox" checked={merge} onChange={(e) => setMerge(e.target.checked)} />
-              Hepsini tek PDF'te birleştir (her dosya için yer imi)
+              {t("Hepsini tek PDF'te birleştir (her dosya için yer imi)")}
             </label>
             {merge && (
               <label className="field">
-                Çıktı adı
-                <input className="input" placeholder="otomatik" value={name} onChange={(e) => setName(e.target.value)} />
+                {t("Çıktı adı")}
+                <input className="input" placeholder={t("otomatik")} value={name} onChange={(e) => setName(e.target.value)} />
               </label>
             )}
             <label className="check">
               <input type="checkbox" checked={pdfa} onChange={(e) => setPdfa(e.target.checked)} />
-              Arşiv için PDF/A (Office dosyaları)
+              {t("Arşiv için PDF/A (Office dosyaları)")}
             </label>
           </section>
         </div>
         <aside className="tool-side">
           <ActionCard
             rows={[
-              ["Dosya", filesSummary(files)],
-              ["Çıktı", files.length ? (merge ? "1 PDF" : `${files.length} PDF`) : "—"],
+              [t("Dosya"), filesSummary(files)],
+              [t("Çıktı"), files.length ? (merge ? "1 PDF" : `${files.length} PDF`) : "—"],
             ]}
-            note="Bozuk ya da parolalı bir dosya diğerlerini durdurmaz; uyarı olarak bildirilir. Bilgisayarda olmayan fontlar da uyarılır."
-            label={job.running ? "Dönüştürülüyor…" : files.length > 1 ? `${files.length} dosyayı dönüştür` : "PDF'e dönüştür"}
+            note={t("Bozuk ya da parolalı bir dosya diğerlerini durdurmaz; uyarı olarak bildirilir. Bilgisayarda olmayan fontlar da uyarılır.")}
+            label={
+              job.running
+                ? t("Dönüştürülüyor…")
+                : files.length > 1
+                  ? t("{n} dosyayı dönüştür", { n: files.length })
+                  : t("PDF'e dönüştür")
+            }
             disabled={!files.length || job.running}
             busy={job.running}
             done={job.job?.status === "bitti"}

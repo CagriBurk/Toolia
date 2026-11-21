@@ -1,5 +1,6 @@
 import Konva from "konva";
 import { FONT_CSS } from "../fonts";
+import { t as translate } from "../i18n";
 
 export { FONT_CSS };
 
@@ -165,7 +166,7 @@ export function createBox(tool: Tool, page: number, x: number, y: number, w: num
       const t: TextObj = {
         ...base,
         kind: "text",
-        text: "Yazı",
+        text: translate("Yazı"),
         font: "noto-sans",
         bold: false,
         size: 14,
@@ -202,7 +203,7 @@ export function createBox(tool: Tool, page: number, x: number, y: number, w: num
 
 export const TOOL_LABELS: Record<Tool, string> = {
   select: "Seç",
-  text: "Yazı",
+  text: translate("Yazı"),
   image: "Resim",
   signature: "İmza",
   highlight: "Vurgu",
@@ -215,7 +216,7 @@ export const TOOL_LABELS: Record<Tool, string> = {
 };
 
 export const KIND_LABELS: Record<EditorObj["kind"], string> = {
-  text: "Yazı",
+  text: translate("Yazı"),
   image: "Resim",
   highlight: "Vurgu",
   rect: "Dikdörtgen",

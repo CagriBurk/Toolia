@@ -1,6 +1,7 @@
 import { Download, LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useJob } from "../hooks";
+import { t } from "../i18n";
 import Icon from "./Icon";
 import JobPanel from "./JobPanel";
 import Modal from "./Modal";
@@ -25,22 +26,23 @@ export default function InstallLibreOffice({ onInstalled }: { onInstalled: () =>
     <div className="install-engine">
       <button type="button" onClick={() => setConfirming(true)} disabled={job.running}>
         <Icon icon={job.running ? LoaderCircle : Download} className={job.running ? "spin" : undefined} />
-        {job.running ? "LibreOffice kuruluyor…" : "LibreOffice'i kur"}
+        {job.running ? t("LibreOffice kuruluyor…") : t("LibreOffice'i kur")}
       </button>
       <JobPanel job={job.job} error={job.error} />
       {confirming && (
-        <Modal title="LibreOffice kurulsun mu?" onClose={() => setConfirming(false)}>
+        <Modal title={t("LibreOffice kurulsun mu?")} onClose={() => setConfirming(false)}>
           <p>
-            LibreOffice (ücretsiz, yaklaşık 350 MB) internetten indirilip kurulacak. Windows kurulum izni isteyebilir
-            ve işlem birkaç dakika sürebilir.
+            {t(
+              "LibreOffice (ücretsiz, yaklaşık 350 MB) internetten indirilip kurulacak. Windows kurulum izni isteyebilir ve işlem birkaç dakika sürebilir.",
+            )}
           </p>
           <div className="modal-actions">
             <button type="button" data-autofocus onClick={() => setConfirming(false)}>
-              Vazgeç
+              {t("Vazgeç")}
             </button>
             <button type="button" className="primary" onClick={start}>
               <Icon icon={Download} size={17} />
-              Kurulumu başlat
+              {t("Kurulumu başlat")}
             </button>
           </div>
         </Modal>

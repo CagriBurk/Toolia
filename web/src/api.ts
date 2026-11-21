@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 export type EngineKey = "libreoffice" | "browser" | "tesseract" | "ghostscript";
 
 export interface EngineStatus {
@@ -162,7 +164,7 @@ export async function request<T>(url: string, init: RequestInit = {}): Promise<T
     headers: { Accept: "application/json", ...(init.headers ?? {}) },
   });
   if (!res.ok) {
-    let detail = `Sunucu ${res.status} döndürdü`;
+    let detail = t("Sunucu {status} döndürdü", { status: res.status });
     try {
       const body = await res.json();
       if (body?.detail) detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
@@ -191,9 +193,9 @@ function uploadFiles(files: File[], onProgress?: (fraction: number) => void): Pr
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as FileMeta[]);
-      else reject(new ApiError(xhr.response?.detail ?? `Yükleme başarısız (${xhr.status})`, xhr.status));
+      else reject(new ApiError(xhr.response?.detail ?? t("Yükleme başarısız ({status})", { status: xhr.status }), xhr.status));
     };
-    xhr.onerror = () => reject(new ApiError("Sunucuya ulaşılamadı", 0));
+    xhr.onerror = () => reject(new ApiError(t("Sunucuya ulaşılamadı"), 0));
     xhr.send(form);
   });
 }

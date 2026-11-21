@@ -5,6 +5,7 @@ import JobPanel, { ActionCard } from "../components/JobPanel";
 import PageHeader from "../components/PageHeader";
 import PasswordDialog from "../components/PasswordDialog";
 import { useFiles, useJob, useUnlockQueue } from "../hooks";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import { idsFrom, type Route } from "../router";
 import { ACCEPT } from "../tools";
@@ -49,7 +50,7 @@ export default function Ocr({ route, engines }: { route: Route; engines: Engines
   const missing = engines?.engines.filter((e) => (e.key === "tesseract" || e.key === "ghostscript") && !e.ok) ?? [];
   const toggle = (l: string) => setLangs((ls) => (ls.includes(l) ? ls.filter((x) => x !== l) : [...ls, l]));
 
-  const langNames = [langs.includes("tur") && "Türkçe", langs.includes("eng") && "İngilizce"].filter(Boolean).join(", ");
+  const langNames = [langs.includes("tur") && t("Türkçe"), langs.includes("eng") && t("İngilizce")].filter(Boolean).join(", ");
 
   return (
     <>
@@ -58,49 +59,48 @@ export default function Ocr({ route, engines }: { route: Route; engines: Engines
         <div className="tool-main">
           {missing.length > 0 && (
             <div className="banner warn">
-              Eksik motor: {missing.map((m) => m.name).join(", ")}. Ayarlar sayfasındaki kurulum komutuna bak.
+              {t("Eksik motor: {names}. Ayarlar sayfasındaki kurulum komutuna bak.", { names: missing.map((m) => m.name).join(", ") })}
             </div>
           )}
-          <FilesCard title="Dosya">
+          <FilesCard title={t("Dosya")}>
             {file ? (
               <FileRow file={file} onRemove={() => (setFile(null), job.reset())} />
             ) : (
-              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title="Taranmış PDF'i bırak" onAdd={([f]) => setFile(f)} />
+              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title={t("Taranmış PDF'i bırak")} onAdd={([f]) => setFile(f)} />
             )}
             {hasText === true && mode === "skip" && (
               <p className="muted small card-hint">
-                Bu PDF'te zaten metin var; metinli sayfalar atlanır. Hepsini yeniden tanımak için "Eski OCR'ı yenile"
-                ya da "Zorla" seç.
+                {t("Bu PDF'te zaten metin var; metinli sayfalar atlanır. Hepsini yeniden tanımak için \"Eski OCR'ı yenile\" ya da \"Zorla\" seç.")}
               </p>
             )}
-            {hasText === false && <p className="muted small card-hint">Bu PDF'te metin yok: taranmış görünüyor.</p>}
+            {hasText === false && <p className="muted small card-hint">{t("Bu PDF'te metin yok: taranmış görünüyor.")}</p>}
           </FilesCard>
           <section className="card">
             <fieldset className="radio-cards">
-              <legend>Hangi sayfalar?</legend>
+              <legend>{t("Hangi sayfalar?")}</legend>
               {MODES.map((m) => (
                 <label key={m.value} className={`radio-card${mode === m.value ? " on" : ""}`}>
                   <input type="radio" name="mode" checked={mode === m.value} onChange={() => setMode(m.value)} />
                   <span className="radio-card-head">
-                    <strong>{m.label}</strong>
+                    <strong>{t(m.label)}</strong>
                     <span className="radio-dot" aria-hidden="true" />
                   </span>
-                  <span className="muted small">{m.hint}</span>
+                  <span className="muted small">{t(m.hint)}</span>
                 </label>
               ))}
             </fieldset>
           </section>
           <section className="card">
-            <h2>Seçenekler</h2>
+            <h2>{t("Seçenekler")}</h2>
             <fieldset className="field plain checks">
-              <legend>Diller</legend>
+              <legend>{t("Diller")}</legend>
               <label className="check">
                 <input type="checkbox" checked={langs.includes("tur")} onChange={() => toggle("tur")} />
-                Türkçe
+                {t("Türkçe")}
               </label>
               <label className="check">
                 <input type="checkbox" checked={langs.includes("eng")} onChange={() => toggle("eng")} />
-                İngilizce
+                {t("İngilizce")}
               </label>
             </fieldset>
           </section>
@@ -108,12 +108,12 @@ export default function Ocr({ route, engines }: { route: Route; engines: Engines
         <aside className="tool-side">
           <ActionCard
             rows={[
-              ["Dosya", fileSummary(file)],
-              ["Sayfalar", MODES.find((m) => m.value === mode)?.label],
-              ["Diller", langNames || "—"],
+              [t("Dosya"), fileSummary(file)],
+              [t("Sayfalar"), t(MODES.find((m) => m.value === mode)?.label ?? "")],
+              [t("Diller"), langNames || "—"],
             ]}
-            note="Eğik taranmış sayfalar düzeltilir, yan duranlar döndürülür. Sayfa başına birkaç saniye sürer; iptal edilebilir."
-            label="OCR başlat"
+            note={t("Eğik taranmış sayfalar düzeltilir, yan duranlar döndürülür. Sayfa başına birkaç saniye sürer; iptal edilebilir.")}
+            label={t("OCR başlat")}
             disabled={!file || !langs.length || job.running || missing.some((m) => m.key === "tesseract")}
             busy={job.running}
             done={job.job?.status === "bitti"}

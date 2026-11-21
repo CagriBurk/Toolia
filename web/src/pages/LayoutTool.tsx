@@ -7,6 +7,7 @@ import JobPanel, { ActionCard } from "../components/JobPanel";
 import PageHeader from "../components/PageHeader";
 import PasswordDialog from "../components/PasswordDialog";
 import { useFiles, useJob, useUnlockQueue } from "../hooks";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import { idsFrom, type Route } from "../router";
 import { toast } from "../toast";
@@ -95,7 +96,7 @@ export default function LayoutTool({ route }: { route: Route }) {
     const current = job.job;
     if (current?.status === "bitti" && notifiedId.current !== current.id) {
       notifiedId.current = current.id;
-      toast.ok("Sayfa düzeni hazır.");
+      toast.ok(t("Sayfa düzeni hazır."));
     }
   }, [job.job]);
 
@@ -132,7 +133,7 @@ export default function LayoutTool({ route }: { route: Route }) {
       <PageHeader title="Sayfa Düzeni ve Yazdırma" />
       <div className="tool-layout">
         <div className="tool-main">
-          <FilesCard title="Dosya">
+          <FilesCard title={t("Dosya")}>
             {file ? (
               <FileRow file={file} onRemove={() => (setFile(null), job.reset())} />
             ) : (
@@ -140,15 +141,15 @@ export default function LayoutTool({ route }: { route: Route }) {
                 accept={ACCEPT.pdf}
                 kind="pdf"
                 multiple={false}
-                title="Düzenlenecek PDF'i bırak"
+                title={t("Düzenlenecek PDF'i bırak")}
                 onAdd={([f]) => (setFile(f), job.reset())}
               />
             )}
           </FilesCard>
 
           <section className="card layout-card">
-            <h2>Mod</h2>
-            <div className="tabs layout-tabs" role="tablist" aria-label="Sayfa düzeni modları">
+            <h2>{t("Mod")}</h2>
+            <div className="tabs layout-tabs" role="tablist" aria-label={t("Sayfa düzeni modları")}>
               {MODES.map((m) => (
                 <button
                   key={m.value}
@@ -159,18 +160,18 @@ export default function LayoutTool({ route }: { route: Route }) {
                   onClick={() => (setMode(m.value), job.reset())}
                 >
                   <Icon icon={m.icon} />
-                  {m.label}
+                  {t(m.label)}
                 </button>
               ))}
             </div>
 
-            <p className="muted small layout-mode-hint">{activeMode.hint}</p>
+            <p className="muted small layout-mode-hint">{t(activeMode.hint)}</p>
 
             {mode === "nup" && (
               <>
                 <fieldset className="field plain">
-                  <legend>Kağıt başına sayfa sayısı</legend>
-                  <div className="segmented seg-track" role="group" aria-label="Kağıt başına sayfa sayısı">
+                  <legend>{t("Kağıt başına sayfa sayısı")}</legend>
+                  <div className="segmented seg-track" role="group" aria-label={t("Kağıt başına sayfa sayısı")}>
                     {PER_SHEET_OPTIONS.map((n) => (
                       <button
                         key={n}
@@ -191,16 +192,16 @@ export default function LayoutTool({ route }: { route: Route }) {
                     onChange={(e) => setNotesSide(e.target.checked)}
                   />
                   <span>
-                    <strong>Ders slaytı not alanı</strong>
+                    <strong>{t("Ders slaytı not alanı")}</strong>
                     <span className="muted small layout-check-sub">
-                      Slaytları sol yarıya (%55) sıralar, sağ tarafta (%45) çizgili not alanı bırakır.
+                      {t("Slaytları sol yarıya (%55) sıralar, sağ tarafta (%45) çizgili not alanı bırakır.")}
                     </span>
                   </span>
                 </label>
 
                 <div className="fields">
                   <label className="field">
-                    Kenar boşluğu (mm)
+                    {t("Kenar boşluğu (mm)")}
                     <input
                       className="input"
                       type="number"
@@ -212,7 +213,7 @@ export default function LayoutTool({ route }: { route: Route }) {
                     />
                   </label>
                   <label className="field">
-                    Sayfalar arası boşluk (mm)
+                    {t("Sayfalar arası boşluk (mm)")}
                     <input
                       className="input"
                       type="number"
@@ -227,7 +228,7 @@ export default function LayoutTool({ route }: { route: Route }) {
 
                 <label className="check">
                   <input type="checkbox" checked={border} onChange={(e) => setBorder(e.target.checked)} />
-                  <span>Her sayfa hücresinin etrafına ince çerçeve çiz</span>
+                  <span>{t("Her sayfa hücresinin etrafına ince çerçeve çiz")}</span>
                 </label>
               </>
             )}
@@ -235,28 +236,28 @@ export default function LayoutTool({ route }: { route: Route }) {
             {mode === "crop" && (
               <>
                 <fieldset className="field plain">
-                  <legend>Kırpma yöntemi</legend>
-                  <div className="segmented seg-track" role="group" aria-label="Kırpma yöntemi">
+                  <legend>{t("Kırpma yöntemi")}</legend>
+                  <div className="segmented seg-track" role="group" aria-label={t("Kırpma yöntemi")}>
                     <button
                       type="button"
                       className={cropMode === "auto" ? "on" : undefined}
                       onClick={() => setCropMode("auto")}
                     >
-                      Otomatik (içeriğe göre)
+                      {t("Otomatik (içeriğe göre)")}
                     </button>
                     <button
                       type="button"
                       className={cropMode === "manual" ? "on" : undefined}
                       onClick={() => setCropMode("manual")}
                     >
-                      Elle (mm)
+                      {t("Elle (mm)")}
                     </button>
                   </div>
                 </fieldset>
 
                 {cropMode === "auto" ? (
                   <label className="field">
-                    İçerik çevresinde bırakılacak pay (mm)
+                    {t("İçerik çevresinde bırakılacak pay (mm)")}
                     <input
                       className="input narrow"
                       type="number"
@@ -270,7 +271,7 @@ export default function LayoutTool({ route }: { route: Route }) {
                 ) : (
                   <div className="fields">
                     <label className="field">
-                      Üstten kes (mm)
+                      {t("Üstten kes (mm)")}
                       <input
                         className="input"
                         type="number"
@@ -282,7 +283,7 @@ export default function LayoutTool({ route }: { route: Route }) {
                       />
                     </label>
                     <label className="field">
-                      Sağdan kes (mm)
+                      {t("Sağdan kes (mm)")}
                       <input
                         className="input"
                         type="number"
@@ -294,7 +295,7 @@ export default function LayoutTool({ route }: { route: Route }) {
                       />
                     </label>
                     <label className="field">
-                      Alttan kes (mm)
+                      {t("Alttan kes (mm)")}
                       <input
                         className="input"
                         type="number"
@@ -306,7 +307,7 @@ export default function LayoutTool({ route }: { route: Route }) {
                       />
                     </label>
                     <label className="field">
-                      Soldan kes (mm)
+                      {t("Soldan kes (mm)")}
                       <input
                         className="input"
                         type="number"
@@ -326,7 +327,7 @@ export default function LayoutTool({ route }: { route: Route }) {
               <>
                 <div className="fields">
                   <label className="field">
-                    Sütun sayısı (yatay parça)
+                    {t("Sütun sayısı (yatay parça)")}
                     <input
                       className="input"
                       type="number"
@@ -338,7 +339,7 @@ export default function LayoutTool({ route }: { route: Route }) {
                     />
                   </label>
                   <label className="field">
-                    Satır sayısı (dikey parça)
+                    {t("Satır sayısı (dikey parça)")}
                     <input
                       className="input"
                       type="number"
@@ -351,7 +352,7 @@ export default function LayoutTool({ route }: { route: Route }) {
                   </label>
                 </div>
                 <label className="field">
-                  Yapıştırma bindirme payı (mm)
+                  {t("Yapıştırma bindirme payı (mm)")}
                   <input
                     className="input narrow"
                     type="number"
@@ -363,14 +364,14 @@ export default function LayoutTool({ route }: { route: Route }) {
                   />
                 </label>
                 <p className="muted small layout-note">
-                  Her kaynak sayfa {posterCols * posterRows} parçaya ({posterCols} × {posterRows}) bölünür.
+                  {t("Her kaynak sayfa {n} parçaya ({c} × {r}) bölünür.", { n: posterCols * posterRows, c: posterCols, r: posterRows })}
                 </p>
               </>
             )}
 
             {mode === "resize" && (
               <label className="field">
-                Kenar boşluğu (mm)
+                {t("Kenar boşluğu (mm)")}
                 <input
                   className="input narrow"
                   type="number"
@@ -385,11 +386,11 @@ export default function LayoutTool({ route }: { route: Route }) {
           </section>
 
           <section className="card">
-            <h2>Seçenekler</h2>
+            <h2>{t("Seçenekler")}</h2>
             <div className="fields">
               {mode !== "crop" && (
                 <label className="field">
-                  Kağıt boyutu
+                  {t("Kağıt boyutu")}
                   <select value={paper} onChange={(e) => setPaper(e.target.value)}>
                     {PAPERS.map((p) => (
                       <option key={p} value={p}>
@@ -401,19 +402,19 @@ export default function LayoutTool({ route }: { route: Route }) {
               )}
               {mode !== "crop" && (
                 <label className="field">
-                  Yön
+                  {t("Yön")}
                   <select value={orientation} onChange={(e) => setOrientation(e.target.value as Orientation)}>
-                    <option value="otomatik">Otomatik</option>
-                    <option value="dikey">Dikey</option>
-                    <option value="yatay">Yatay</option>
+                    <option value="otomatik">{t("Otomatik")}</option>
+                    <option value="dikey">{t("Dikey")}</option>
+                    <option value="yatay">{t("Yatay")}</option>
                   </select>
                 </label>
               )}
               <label className="field">
-                Sayfalar
+                {t("Sayfalar")}
                 <input
                   className="input"
-                  placeholder="hepsi (ör. 1-3, 5)"
+                  placeholder={t("hepsi (ör. 1-3, 5)")}
                   value={spec}
                   onChange={(e) => setSpec(e.target.value)}
                 />
@@ -425,11 +426,11 @@ export default function LayoutTool({ route }: { route: Route }) {
         <aside className="tool-side">
           <ActionCard
             rows={[
-              ["Dosya", fileSummary(file)],
-              ["Mod", activeMode.label],
-              ...(mode !== "crop" ? ([["Kağıt", paper]] as [string, string][]) : []),
+              [t("Dosya"), fileSummary(file)],
+              [t("Mod"), t(activeMode.label)],
+              ...(mode !== "crop" ? ([[t("Kağıt"), paper]] as [string, string][]) : []),
             ]}
-            label={job.running ? "İşleniyor…" : "Uygula"}
+            label={job.running ? t("İşleniyor…") : t("Uygula")}
             disabled={!file || job.running}
             busy={job.running}
             done={job.job?.status === "bitti"}

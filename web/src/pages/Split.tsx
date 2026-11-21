@@ -5,6 +5,7 @@ import JobPanel, { ActionCard } from "../components/JobPanel";
 import PageHeader from "../components/PageHeader";
 import PasswordDialog from "../components/PasswordDialog";
 import { useFiles, useJob, useUnlockQueue } from "../hooks";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import { idsFrom, type Route } from "../router";
 import { ACCEPT } from "../tools";
@@ -42,6 +43,7 @@ export default function Split({ route }: { route: Route }) {
   }, [initial.files, queueUnlock]);
 
   const pages = file?.page_count ?? 0;
+  const modeLabel = MODES.find((m) => m.value === mode)?.label;
   const parts = mode === "her" ? pages : mode === "n" && every > 0 ? Math.ceil(pages / every) : null;
 
   return (
@@ -49,36 +51,36 @@ export default function Split({ route }: { route: Route }) {
       <PageHeader title="Böl" />
       <div className="tool-layout">
         <div className="tool-main">
-          <FilesCard title="Dosya">
+          <FilesCard title={t("Dosya")}>
             {file ? (
               <FileRow file={file} onRemove={() => (setFile(null), job.reset())} />
             ) : (
-              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title="Bölünecek PDF'i bırak" onAdd={([f]) => setFile(f)} />
+              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title={t("Bölünecek PDF'i bırak")} onAdd={([f]) => setFile(f)} />
             )}
           </FilesCard>
           <section className="card">
             <fieldset className="radio-cards">
-              <legend>Nasıl bölünsün?</legend>
+              <legend>{t("Nasıl bölünsün?")}</legend>
               {MODES.map((m) => (
                 <label key={m.value} className={`radio-card${mode === m.value ? " on" : ""}`}>
                   <input type="radio" name="mode" value={m.value} checked={mode === m.value} onChange={() => setMode(m.value)} />
                   <span className="radio-card-head">
-                    <strong>{m.label}</strong>
+                    <strong>{t(m.label)}</strong>
                     <span className="radio-dot" aria-hidden="true" />
                   </span>
-                  <span className="muted small">{m.hint}</span>
+                  <span className="muted small">{t(m.hint)}</span>
                 </label>
               ))}
             </fieldset>
             {mode === "n" && (
               <label className="field inline">
-                Kaç sayfada bir
+                {t("Kaç sayfada bir")}
                 <input className="input narrow" type="number" min={1} value={every} onChange={(e) => setEvery(Number(e.target.value))} />
               </label>
             )}
             {mode === "aralik" && (
               <label className="field">
-                Aralıklar
+                {t("Aralıklar")}
                 <input className="input" placeholder="1-3, 4-10, 11-" value={spec} onChange={(e) => setSpec(e.target.value)} />
               </label>
             )}
@@ -87,11 +89,11 @@ export default function Split({ route }: { route: Route }) {
         <aside className="tool-side">
           <ActionCard
             rows={[
-              ["Dosya", fileSummary(file)],
-              ["Yöntem", MODES.find((m) => m.value === mode)?.label],
-              ...(parts ? ([["Çıktı", `${parts} dosya`]] as [string, string][]) : []),
+              [t("Dosya"), fileSummary(file)],
+              [t("Yöntem"), modeLabel && t(modeLabel)],
+              ...(parts ? ([[t("Çıktı"), t("{n} dosya", { n: parts })]] as [string, string][]) : []),
             ]}
-            label={parts ? `Böl (${parts} dosya)` : "Böl"}
+            label={parts ? t("Böl ({n} dosya)", { n: parts }) : t("Böl")}
             disabled={!file || job.running || (mode === "aralik" && !spec.trim())}
             busy={job.running}
             done={job.job?.status === "bitti"}

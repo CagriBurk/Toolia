@@ -7,6 +7,7 @@ import JobPanel, { ActionCard } from "../components/JobPanel";
 import PageHeader from "../components/PageHeader";
 import PasswordDialog from "../components/PasswordDialog";
 import { useFiles, useJob, useUnlockQueue } from "../hooks";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import { idsFrom, type Route } from "../router";
 import { ACCEPT } from "../tools";
@@ -62,11 +63,11 @@ export default function Protect({ route }: { route: Route }) {
     action === "encrypt" &&
     pw &&
     (pw.length < 4
-      ? "En az 4 karakter."
+      ? t("En az 4 karakter.")
       : pw2 && pw !== pw2
-        ? "Şifreler aynı değil."
+        ? t("Şifreler aynı değil.")
         : ownerClash
-          ? "Sahip şifresi açılış şifresinden farklı olmalı; aynı olursa izin kısıtları uygulanmaz."
+          ? t("Sahip şifresi açılış şifresinden farklı olmalı; aynı olursa izin kısıtları uygulanmaz.")
           : null);
   const ready = file && (action !== "encrypt" || (pw.length >= 4 && pw === pw2 && !ownerClash));
 
@@ -93,22 +94,22 @@ export default function Protect({ route }: { route: Route }) {
       accept={ACCEPT.pdf}
       kind="pdf"
       multiple={false}
-      title="PDF'i bırak"
+      title={t("PDF'i bırak")}
       onAdd={([f]) => (setFile(f), job.reset())}
     />
   );
 
-  const label = ACTIONS.find((a) => a.value === action)?.label ?? "";
+  const label = t(ACTIONS.find((a) => a.value === action)?.label ?? "");
 
   return (
     <>
       <PageHeader title="Güvenlik ve Bakım" />
       <div className="tool-layout">
         <div className="tool-main">
-          <FilesCard title="Dosya">{file ? <FileRow file={file} onRemove={() => (setFile(null), job.reset())} /> : picker}</FilesCard>
+          <FilesCard title={t("Dosya")}>{file ? <FileRow file={file} onRemove={() => (setFile(null), job.reset())} /> : picker}</FilesCard>
           <section className="card">
             <fieldset className="radio-cards">
-              <legend>İşlem</legend>
+              <legend>{t("İşlem")}</legend>
               {ACTIONS.map((a) => (
                 <label key={a.value} className={`radio-card${action === a.value ? " on" : ""}`}>
                   <input
@@ -118,10 +119,10 @@ export default function Protect({ route }: { route: Route }) {
                     onChange={() => (setAction(a.value), job.reset())}
                   />
                   <span className="radio-card-head">
-                    <strong>{a.label}</strong>
+                    <strong>{t(a.label)}</strong>
                     <span className="radio-dot" aria-hidden="true" />
                   </span>
-                  <span className="muted small">{a.hint}</span>
+                  <span className="muted small">{t(a.hint)}</span>
                 </label>
               ))}
             </fieldset>
@@ -129,7 +130,7 @@ export default function Protect({ route }: { route: Route }) {
           {action === "encrypt" && (
             <section className="card">
               <div className="section-head">
-                <h2>Seçenekler</h2>
+                <h2>{t("Seçenekler")}</h2>
                 <button
                   type="button"
                   className="small"
@@ -137,23 +138,23 @@ export default function Protect({ route }: { route: Route }) {
                   onClick={() => setShowPw((v) => !v)}
                 >
                   <Icon icon={showPw ? EyeOff : Eye} size={15} />
-                  {showPw ? "Şifreleri gizle" : "Şifreleri göster"}
+                  {showPw ? t("Şifreleri gizle") : t("Şifreleri göster")}
                 </button>
               </div>
               <div className="fields">
                 <label className="field">
-                  Açılış şifresi
+                  {t("Açılış şifresi")}
                   <input
                     className="input"
                     type={showPw ? "text" : "password"}
                     autoComplete="new-password"
-                    placeholder="En az 4 karakter"
+                    placeholder={t("En az 4 karakter")}
                     value={pw}
                     onChange={(e) => setPw(e.target.value)}
                   />
                 </label>
                 <label className="field">
-                  Şifre (tekrar)
+                  {t("Şifre (tekrar)")}
                   <input
                     className="input"
                     type={showPw ? "text" : "password"}
@@ -165,7 +166,7 @@ export default function Protect({ route }: { route: Route }) {
               </div>
               {pwError && <p className="error-text">{pwError}</p>}
               <fieldset className="field plain checks">
-                <legend>İzinler</legend>
+                <legend>{t("İzinler")}</legend>
                 {(
                   [
                     ["print", "Yazdırma"],
@@ -175,17 +176,17 @@ export default function Protect({ route }: { route: Route }) {
                 ).map(([k, label]) => (
                   <label key={k} className="check">
                     <input type="checkbox" checked={allow[k]} onChange={(e) => setAllow({ ...allow, [k]: e.target.checked })} />
-                    {label}
+                    {t(label)}
                   </label>
                 ))}
               </fieldset>
               <label className="field">
-                Sahip şifresi (isteğe bağlı)
+                {t("Sahip şifresi (isteğe bağlı)")}
                 <input
                   className="input"
                   type={showPw ? "text" : "password"}
                   autoComplete="new-password"
-                  placeholder={restricted ? "boşsa rastgele üretilir" : "boşsa açılış şifresiyle aynı"}
+                  placeholder={restricted ? t("boşsa rastgele üretilir") : t("boşsa açılış şifresiyle aynı")}
                   value={owner}
                   onChange={(e) => setOwner(e.target.value)}
                 />
@@ -196,10 +197,10 @@ export default function Protect({ route }: { route: Route }) {
         <aside className="tool-side">
           <ActionCard
             rows={[
-              ["Dosya", fileSummary(file)],
-              ["İşlem", label],
+              [t("Dosya"), fileSummary(file)],
+              [t("İşlem"), label],
             ]}
-            note={NOTES[action]}
+            note={t(NOTES[action])}
             label={label}
             disabled={!ready || job.running}
             busy={job.running}

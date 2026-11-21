@@ -8,6 +8,7 @@ import PageHeader from "../components/PageHeader";
 import PasswordDialog from "../components/PasswordDialog";
 import { FONT_CSS, loadBundledFonts } from "../fonts";
 import { useFiles, useJob, useUnlockQueue } from "../hooks";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import { idsFrom, type Route } from "../router";
 import { ACCEPT, toolForRoute } from "../tools";
@@ -22,14 +23,15 @@ const POSITIONS: { value: Position; label: string }[] = [
   { value: "bottom-center", label: "Alt orta" },
   { value: "bottom-right", label: "Alt sağ" },
 ];
-const FORMATS = ["{n}", "Sayfa {n}", "{n} / {N}", "Sayfa {n} / {N}", "- {n} -"];
+// PDF'e basılan biçim de arayüz dilinde önerilir (İngilizcede "Page {n} / {N}").
+const FORMATS = ["{n}", "Sayfa {n}", "{n} / {N}", "Sayfa {n} / {N}", "- {n} -"].map((f) => t(f));
 
 const stem = (name: string) => name.replace(/\.pdf$/i, "");
 
 export default function PageNumbers({ route }: { route: Route }) {
   const initial = useFiles(idsFrom(route));
   const [file, setFile] = useState<FileMeta | null>(null);
-  const [format, setFormat] = useState("Sayfa {n} / {N}");
+  const [format, setFormat] = useState(t("Sayfa {n} / {N}"));
   const [position, setPosition] = useState<Position>("bottom-center");
   const [start, setStart] = useState(1);
   const [skipFirst, setSkipFirst] = useState(false);
@@ -87,11 +89,11 @@ export default function PageNumbers({ route }: { route: Route }) {
       <PageHeader title="Sayfa Numarası" />
       <div className="tool-layout">
         <div className="tool-main">
-          <FilesCard title="Dosya">
+          <FilesCard title={t("Dosya")}>
             {file ? (
               <FileRow file={file} onRemove={() => (setFile(null), job.reset())} />
             ) : (
-              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title="Numaralanacak PDF'i bırak" onAdd={([f]) => setFile(f)} />
+              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title={t("Numaralanacak PDF'i bırak")} onAdd={([f]) => setFile(f)} />
             )}
           </FilesCard>
           {file && (
@@ -114,25 +116,25 @@ export default function PageNumbers({ route }: { route: Route }) {
                   </span>
                 )}
               </PagePreview>
-              <p className="muted small">{previewPage + 1}. sayfanın önizlemesi.</p>
+              <p className="muted small">{t("{n}. sayfanın önizlemesi.", { n: previewPage + 1 })}</p>
             </div>
           )}
         </div>
         <aside className="options" aria-labelledby="sayfa-no-secenekler">
-          <h2 id="sayfa-no-secenekler">Seçenekler</h2>
+          <h2 id="sayfa-no-secenekler">{t("Seçenekler")}</h2>
           <label className="field">
-            Biçim
+            {t("Biçim")}
             <input className="input" list="pn-formats" value={format} onChange={(e) => setFormat(e.target.value)} />
             <datalist id="pn-formats">
               {FORMATS.map((f) => (
                 <option key={f} value={f} />
               ))}
             </datalist>
-            <span className="small">{"{n}"} = sayfa numarası, {"{N}"} = toplam</span>
+            <span className="small">{t("{n} = sayfa numarası, {N} = toplam")}</span>
           </label>
-          {!validFormat && <p className="error-text">Biçimde {"{n}"} olmalı.</p>}
+          {!validFormat && <p className="error-text">{t("Biçimde {n} olmalı.")}</p>}
           <fieldset className="field plain">
-            <legend>Konum</legend>
+            <legend>{t("Konum")}</legend>
             <div className="position-grid">
               {POSITIONS.map((p) => (
                 <button
@@ -142,31 +144,31 @@ export default function PageNumbers({ route }: { route: Route }) {
                   aria-pressed={position === p.value}
                   onClick={() => setPosition(p.value)}
                 >
-                  {p.label}
+                  {t(p.label)}
                 </button>
               ))}
             </div>
           </fieldset>
           <div className="field-row">
             <label className="field">
-              İlk numara
+              {t("İlk numara")}
               <input className="input narrow" type="number" min={0} value={start} onChange={(e) => setStart(Math.max(0, Number(e.target.value)))} />
             </label>
             <label className="field">
-              Kenar (pt)
+              {t("Kenar (pt)")}
               <input className="input narrow" type="number" min={0} max={300} value={margin} onChange={(e) => setMargin(Number(e.target.value))} />
             </label>
           </div>
           <label className="check">
             <input type="checkbox" checked={skipFirst} onChange={(e) => setSkipFirst(e.target.checked)} />
-            İlk sayfayı atla (kapak): numaralama ikinci sayfadan başlar
+            {t("İlk sayfayı atla (kapak): numaralama ikinci sayfadan başlar")}
           </label>
           <label className="field">
-            Sayfalar
-            <input className="input" placeholder="hepsi (ör. 1-3, 5)" value={pages} onChange={(e) => setPages(e.target.value)} />
+            {t("Sayfalar")}
+            <input className="input" placeholder={t("hepsi (ör. 1-3, 5)")} value={pages} onChange={(e) => setPages(e.target.value)} />
           </label>
           <label className="field">
-            Font
+            {t("Font")}
             <select className="input" value={font} onChange={(e) => setFont(e.target.value)}>
               {fonts.map((f) => (
                 <option key={f.key} value={f.key}>
@@ -177,11 +179,11 @@ export default function PageNumbers({ route }: { route: Route }) {
           </label>
           <div className="field-row">
             <label className="field">
-              Boyut
+              {t("Boyut")}
               <input className="input narrow" type="number" min={4} max={72} value={size} onChange={(e) => setSize(Number(e.target.value))} />
             </label>
             <label className="field">
-              Renk
+              {t("Renk")}
               <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
             </label>
           </div>
@@ -192,7 +194,7 @@ export default function PageNumbers({ route }: { route: Route }) {
             onClick={run}
           >
             <Icon icon={toolForRoute("sayfa-no")!.icon} />
-            Numaraları ekle
+            {t("Numaraları ekle")}
           </button>
           <JobPanel job={job.job} error={job.error ?? initial.error} />
         </aside>

@@ -1,6 +1,7 @@
 import { House, RefreshCw, RotateCcw, TriangleAlert } from "lucide-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { api } from "../api";
+import { t } from "../i18n";
 import Icon from "./Icon";
 
 interface Props {
@@ -45,30 +46,31 @@ export default class ErrorBoundary extends Component<Props, State> {
           <Icon icon={TriangleAlert} size={25} strokeWidth={1.9} />
         </span>
         <div className="crash-body">
-          <h2>Bu ekranda bir şeyler ters gitti</h2>
+          <h2>{t("Bu ekranda bir şeyler ters gitti")}</h2>
           <p>
-            Dosyaların güvende: sunucudaki dosyalar ve sürümler etkilenmedi. Ekranı yeniden açmayı dene; olmazsa ana
-            sayfaya dönüp işini oradan sürdür.
+            {t(
+              "Dosyaların güvende: sunucudaki dosyalar ve sürümler etkilenmedi. Ekranı yeniden açmayı dene; olmazsa ana sayfaya dönüp işini oradan sürdür.",
+            )}
           </p>
           <p className="mono small break crash-detail">{error.message}</p>
           {errorId && (
             <p className="muted small">
-              Hata kimliği: <strong className="mono">{errorId}</strong> (ayrıntısı günlük dosyasında, yolu Ayarlar →
-              Gelişmiş'te).
+              {t("Hata kimliği:")} <strong className="mono">{errorId}</strong>{" "}
+              {t("(ayrıntısı günlük dosyasında, yolu Ayarlar → Gelişmiş'te).")}
             </p>
           )}
           <div className="crash-actions">
             <button type="button" className="primary" onClick={() => this.setState({ error: null, errorId: null })}>
               <Icon icon={RotateCcw} size={17} />
-              Yeniden dene
+              {t("Yeniden dene")}
             </button>
             <a className="button" href="#/araclar">
               <Icon icon={House} size={17} />
-              Ana sayfaya dön
+              {t("Ana sayfaya dön")}
             </a>
             <button type="button" onClick={() => window.location.reload()}>
               <Icon icon={RefreshCw} size={17} />
-              Sayfayı yenile
+              {t("Sayfayı yenile")}
             </button>
           </div>
         </div>

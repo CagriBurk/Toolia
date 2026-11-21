@@ -6,6 +6,7 @@ import Icon from "../components/Icon";
 import RecentFiles from "../components/RecentFiles";
 import { toggleFavorite, useFavorites } from "../favorites";
 import { useUpload } from "../hooks";
+import { t } from "../i18n";
 import { navigate } from "../router";
 import { commonConvertTargets, GROUP_TONE, GROUPS, TOOLS, type ToolGroup } from "../tools";
 
@@ -33,12 +34,12 @@ export function homeRoute(files: Dropped[]): HomeRoute {
     return ids.length === 1 ? { type: "go", path: `duzenle/${ids[0]}` } : { type: "go", path: "birlestir", query: { dosya: ids } };
   }
   const pdfPath = all("image") ? "resimden" : all("office", "html", "text") ? "office" : null;
-  if (!pdfPath) return { type: "error", message: "Bu dosya türleri birlikte işlenemiyor. PDF, resim, Office belgesi ya da Markdown bırak." };
+  if (!pdfPath) return { type: "error", message: t("Bu dosya türleri birlikte işlenemiyor. PDF, resim, Office belgesi ya da Markdown bırak.") };
   // HTML / TXT'nin dönüştürme hedefi yok; yalnız saf resim ya da saf Office seçimi sorulur.
   const targets = pdfPath === "resimden" || all("office") ? commonConvertTargets(files.map((f) => f.name)) : [];
   if (!targets.length) return { type: "go", path: pdfPath, query: { dosya: ids } };
   const n = files.length;
-  const what = pdfPath === "resimden" ? `${n} resim yüklendi.` : n === 1 ? "Belge yüklendi." : `${n} belge yüklendi.`;
+  const what = pdfPath === "resimden" ? t("{n} resim yüklendi.", { n }) : n === 1 ? t("Belge yüklendi.") : t("{n} belge yüklendi.", { n });
   return { type: "choose", pdfPath, ids, targets, what };
 }
 
@@ -127,24 +128,24 @@ export default function Home({ engines, onSearch }: { engines: EnginesResponse |
       <div className="home-top">
         <section ref={hero} className="card home-hero" aria-labelledby="home-baslik">
           <div>
-            <h1 id="home-baslik">Dönüştür veya düzenle</h1>
-            <p className="home-lead">Dosyayı bırak, uygun araç kendiliğinden açılsın. Hiçbir dosya bu bilgisayardan çıkmaz.</p>
+            <h1 id="home-baslik">{t("Dönüştür veya düzenle")}</h1>
+            <p className="home-lead">{t("Dosyayı bırak, uygun araç kendiliğinden açılsın. Hiçbir dosya bu bilgisayardan çıkmaz.")}</p>
           </div>
           <DropZone
             hero
             onFiles={onFiles}
             disabled={uploading}
-            title={uploading ? `Yükleniyor… %${Math.round((progress ?? 0) * 100)}` : "Dosyayı buraya bırak"}
-            hint="PDF, Word, Excel, PowerPoint, Markdown ya da fotoğraf · birden çok dosya olur"
+            title={uploading ? t("Yükleniyor… %{p}", { p: Math.round((progress ?? 0) * 100) }) : t("Dosyayı buraya bırak")}
+            hint={t("PDF, Word, Excel, PowerPoint, Markdown ya da fotoğraf · birden çok dosya olur")}
           />
           {choice && (
             <section className="home-choice" aria-labelledby="home-secim">
               <div className="home-choice-head">
                 <div>
-                  <h2 id="home-secim">Ne yapmak istiyorsun?</h2>
+                  <h2 id="home-secim">{t("Ne yapmak istiyorsun?")}</h2>
                   <p className="muted small">{choice.what}</p>
                 </div>
-                <button type="button" className="icon-button" aria-label="Kapat (Esc)" title="Kapat (Esc)" onClick={closeChoice}>
+                <button type="button" className="icon-button" aria-label={t("Kapat (Esc)")} title={t("Kapat (Esc)")} onClick={closeChoice}>
                   <Icon icon={X} />
                 </button>
               </div>
@@ -156,7 +157,7 @@ export default function Home({ engines, onSearch }: { engines: EnginesResponse |
                   onClick={() => navigate(choice.pdfPath, { dosya: choice.ids })}
                 >
                   <Icon icon={FileText} />
-                  PDF'e çevir
+                  {t("PDF'e çevir")}
                 </button>
                 <button
                   type="button"
@@ -164,19 +165,19 @@ export default function Home({ engines, onSearch }: { engines: EnginesResponse |
                   onClick={() => navigate("donustur", { dosya: choice.ids })}
                 >
                   <Icon icon={ArrowLeftRight} />
-                  Başka biçime dönüştür
+                  {t("Başka biçime dönüştür")}
                 </button>
               </div>
               <div id="home-secim-hedef" className="home-choice-quick">
-                <span className="muted small">Hızlı hedef:</span>
-                {choice.targets.map((t) => (
+                <span className="muted small">{t("Hızlı hedef:")}</span>
+                {choice.targets.map((target) => (
                   <button
-                    key={t}
+                    key={target}
                     type="button"
                     className="small"
-                    onClick={() => navigate("donustur", { dosya: choice.ids, hedef: t })}
+                    onClick={() => navigate("donustur", { dosya: choice.ids, hedef: target })}
                   >
-                    {t.replace(/^\./, "").toUpperCase()}
+                    {target.replace(/^\./, "").toUpperCase()}
                   </button>
                 ))}
               </div>
@@ -191,14 +192,14 @@ export default function Home({ engines, onSearch }: { engines: EnginesResponse |
             <summary>
               <Icon icon={Sparkles} size={15} className="route-drawer-icon" />
               <span>
-                <strong>Akıllı yönlendirme:</strong> PDF, resim, Office ya da Markdown bırakınca uygun araç açılır
+                <strong>{t("Akıllı yönlendirme:")}</strong> {t("PDF, resim, Office ya da Markdown bırakınca uygun araç açılır")}
               </span>
               <Icon icon={ChevronRight} size={15} className="route-drawer-caret" />
             </summary>
-            <ul className="route-list" aria-label="Bırakınca ne olur">
+            <ul className="route-list" aria-label={t("Bırakınca ne olur")}>
               {ROUTES.map(([what, result]) => (
                 <li key={what} className="route">
-                  <b>{what}</b> <Icon icon={ArrowRight} size={14} /> {result}
+                  <b>{t(what)}</b> <Icon icon={ArrowRight} size={14} /> {t(result)}
                 </li>
               ))}
             </ul>
@@ -210,20 +211,20 @@ export default function Home({ engines, onSearch }: { engines: EnginesResponse |
       <section aria-labelledby="home-araclar">
         <div className="home-tools-head">
           <div>
-            <h2 id="home-araclar">Tüm araçlar</h2>
+            <h2 id="home-araclar">{t("Tüm araçlar")}</h2>
             <p className="muted">
-              {TOOLS.length} araç, {GROUPS.length} başlıkta. Birine tıkla ya da dosyanı yukarı bırak.
+              {t("{tools} araç, {groups} başlıkta. Birine tıkla ya da dosyanı yukarı bırak.", { tools: TOOLS.length, groups: GROUPS.length })}
             </p>
           </div>
           <div className="home-tools-controls">
-            <div className="segmented seg-track home-filter" role="group" aria-label="Kategori süzgeci">
+            <div className="segmented seg-track home-filter" role="group" aria-label={t("Kategori süzgeci")}>
               <button
                 type="button"
                 className={groupFilter === "all" ? "on" : undefined}
                 aria-pressed={groupFilter === "all"}
                 onClick={() => setGroupFilter("all")}
               >
-                Tümü
+                {t("Tümü")}
               </button>
               {GROUPS.map((g) => (
                 <button
@@ -233,30 +234,30 @@ export default function Home({ engines, onSearch }: { engines: EnginesResponse |
                   aria-pressed={groupFilter === g}
                   onClick={() => setGroupFilter(g)}
                 >
-                  {g === "Optimize ve güvenlik" ? "Optimize" : g}
+                  {g === "Optimize ve güvenlik" ? t("Optimize") : t(g)}
                 </button>
               ))}
             </div>
             <p className="home-keys">
               <kbd>Ctrl</kbd>
-              <kbd>K</kbd> ya da <kbd>/</kbd>
+              <kbd>K</kbd> {t("ya da")} <kbd>/</kbd>
             </p>
           </div>
         </div>
 
         {favTools.length > 0 && groupFilter === "all" && (
-          <div className="fav-strip" aria-label="Sık kullanılan araçlar">
+          <div className="fav-strip" aria-label={t("Sık kullanılan araçlar")}>
             <span className="fav-strip-label">
               <Icon icon={Star} size={14} />
-              Sık kullanılanlar
+              {t("Sık kullanılanlar")}
             </span>
             <div className="fav-strip-items">
-              {favTools.map((t) => (
-                <a key={t.id} className="fav-pill" href={`#/${t.route}`}>
-                  <span className={`tile sm ${t.tone}`}>
-                    <Icon icon={t.icon} size={15} />
+              {favTools.map((tool) => (
+                <a key={tool.id} className="fav-pill" href={`#/${tool.route}`}>
+                  <span className={`tile sm ${tool.tone}`}>
+                    <Icon icon={tool.icon} size={15} />
                   </span>
-                  <span>{t.title}</span>
+                  <span>{t(tool.title)}</span>
                 </a>
               ))}
             </div>
@@ -272,38 +273,39 @@ export default function Home({ engines, onSearch }: { engines: EnginesResponse |
               <div key={group} className={`card tool-group${featured ? " featured" : ""}`}>
                 <div className="tool-group-head">
                   <span className={`dot ${tone}`} aria-hidden="true" />
-                  <h3 id={`grup-${tone}`}>{group}</h3>
+                  <h3 id={`grup-${tone}`}>{t(group)}</h3>
                   <span className="tool-group-count" aria-hidden="true">
                     {tools.length}
                   </span>
                 </div>
                 <ul className={`tool-list${featured ? " featured-grid" : ""}`} aria-labelledby={`grup-${tone}`}>
-                  {tools.map((t) => {
-                    const lacking = missing(t.needs);
-                    const isFav = favorites.includes(t.id);
+                  {tools.map((tool) => {
+                    const lacking = missing(tool.needs);
+                    const isFav = favorites.includes(tool.id);
+                    const title = t(tool.title);
                     return (
-                      <li key={t.id} className={`tool-item${t.id === "convert" ? " tool-card-lead" : ""}`}>
-                        <a className="tool-card active" href={`#/${t.route}`}>
-                          <span className={`tile ${t.tone}`}>
-                            <Icon icon={t.icon} size={19} strokeWidth={1.9} />
+                      <li key={tool.id} className={`tool-item${tool.id === "convert" ? " tool-card-lead" : ""}`}>
+                        <a className="tool-card active" href={`#/${tool.route}`}>
+                          <span className={`tile ${tool.tone}`}>
+                            <Icon icon={tool.icon} size={19} strokeWidth={1.9} />
                           </span>
                           <span className="tool-card-text">
                             <span className="tool-card-title">
-                              {t.title}
-                              {t.id === "convert" && <span className="chip accent small">Tümü tek yerde</span>}
+                              {title}
+                              {tool.id === "convert" && <span className="chip accent small">{t("Tümü tek yerde")}</span>}
                             </span>
-                            <span className="tool-card-desc">{t.description}</span>
-                            {lacking.length > 0 && <span className="chip warn small">Eksik: {lacking.join(", ")}</span>}
+                            <span className="tool-card-desc">{t(tool.description)}</span>
+                            {lacking.length > 0 && <span className="chip warn small">{t("Eksik: {list}", { list: lacking.join(", ") })}</span>}
                           </span>
                           <Icon icon={ChevronRight} size={16} className="go" />
                         </a>
                         <button
                           type="button"
                           className={`tool-fav${isFav ? " on" : ""}`}
-                          aria-label={isFav ? `${t.title} sık kullanılanlardan çıkar` : `${t.title} sık kullanılanlara ekle`}
+                          aria-label={isFav ? t("{tool} sık kullanılanlardan çıkar", { tool: title }) : t("{tool} sık kullanılanlara ekle", { tool: title })}
                           aria-pressed={isFav}
-                          title={isFav ? "Sık kullanılanlardan çıkar" : "Sık kullanılanlara ekle"}
-                          onClick={() => toggleFavorite(t.id)}
+                          title={isFav ? t("Sık kullanılanlardan çıkar") : t("Sık kullanılanlara ekle")}
+                          onClick={() => toggleFavorite(tool.id)}
                         >
                           <Icon icon={Star} size={15} fill={isFav ? "currentColor" : "none"} />
                         </button>
@@ -319,7 +321,7 @@ export default function Home({ engines, onSearch }: { engines: EnginesResponse |
 
       <footer className="home-foot">
         <span>Toolia{engines ? ` ${engines.version}` : ""}</span>
-        <span>Dosyaların bu bilgisayarda kalır · kayıt yok, reklam yok</span>
+        <span>{t("Dosyaların bu bilgisayarda kalır · kayıt yok, reklam yok")}</span>
       </footer>
     </div>
   );

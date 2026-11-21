@@ -1,5 +1,6 @@
 import { Upload } from "lucide-react";
 import { useId, useRef, useState, type ReactNode } from "react";
+import { t } from "../i18n";
 import Icon from "./Icon";
 
 interface Props {
@@ -81,7 +82,7 @@ export default function DropZone({ onFiles, accept, multiple = true, title, hint
       {hero && <DropArt />}
       <div>
         <p id={`${id}-t`} className="dropzone-title">
-          {title ?? "Dosyaları buraya bırak ya da tıklayıp seç"}
+          {title ?? t("Dosyaları buraya bırak ya da tıklayıp seç")}
         </p>
         {hint && (
           <p id={`${id}-h`} className="muted">
@@ -93,7 +94,7 @@ export default function DropZone({ onFiles, accept, multiple = true, title, hint
       {hero && (
         <span className="dropzone-cta" aria-hidden="true">
           <Icon icon={Upload} size={18} strokeWidth={2.2} />
-          Dosya seç
+          {t("Dosya seç")}
         </span>
       )}
       <input

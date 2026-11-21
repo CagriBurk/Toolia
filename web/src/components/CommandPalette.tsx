@@ -2,6 +2,7 @@ import { Clock, FolderOpen, House, Search, SlidersHorizontal, type LucideIcon } 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { EnginesResponse } from "../api";
 import { idsFrom, navigate, type Route } from "../router";
+import { t } from "../i18n";
 import { TOOLS, type Tone, type Tool } from "../tools";
 import Icon from "./Icon";
 
@@ -121,19 +122,22 @@ function CommandPaletteDialog({
     const missingFor = (keys: string[] = []) =>
       engines ? engines.engines.filter((e) => keys.includes(e.key) && !e.ok).map((e) => e.name) : [];
 
-    const toolItems: PaletteItem[] = TOOLS.map((t) => ({
-      id: `tool-${t.id}`,
+    // Arama hem Türkçe adı/açıklamayı hem gösterilen (çevrilmiş) adı kapsar.
+    const toolItems: PaletteItem[] = TOOLS.map((tool) => ({
+      id: `tool-${tool.id}`,
       kind: "tool",
-      title: t.title,
-      subtitle: t.description,
-      group: t.group,
-      route: t.route,
-      tool: t,
-      icon: t.icon,
-      tone: t.tone,
-      searchText: normalizeTr(`${t.title} ${t.description} ${t.group} ${t.route}`),
-      lacking: missingFor(t.needs),
-      handoff: canHandoffToTool(section, ids, t.route),
+      title: tool.title,
+      subtitle: tool.description,
+      group: tool.group,
+      route: tool.route,
+      tool,
+      icon: tool.icon,
+      tone: tool.tone,
+      searchText: normalizeTr(
+        `${tool.title} ${tool.description} ${tool.group} ${tool.route} ${t(tool.title)} ${t(tool.description)} ${t(tool.group)}`,
+      ),
+      lacking: missingFor(tool.needs),
+      handoff: canHandoffToTool(section, ids, tool.route),
     }));
 
     const navItems: PaletteItem[] = QUICK_ACTIONS.map((a) => ({
@@ -144,7 +148,7 @@ function CommandPaletteDialog({
       group: a.group,
       route: a.route,
       icon: a.icon,
-      searchText: normalizeTr(`${a.title} ${a.subtitle} ${a.group} ${a.route}`),
+      searchText: normalizeTr(`${a.title} ${a.subtitle} ${a.group} ${a.route} ${t(a.title)} ${t(a.subtitle)} ${t(a.group)}`),
       lacking: [],
       handoff: false,
     }));
@@ -206,7 +210,7 @@ function CommandPaletteDialog({
     <dialog
       ref={dialogRef}
       className="cmd-palette"
-      aria-label="Komut paleti"
+      aria-label={t("Komut paleti")}
       onClose={onClose}
       onMouseDown={(e) => {
         mouseDownBackdrop.current = e.target === dialogRef.current;
@@ -227,8 +231,8 @@ function CommandPaletteDialog({
             setSelectedIdx(0);
           }}
           onKeyDown={onInputKeyDown}
-          placeholder="Araç veya ekran ara… (ör. yazdır, kırp, şifre, dosyalar)"
-          aria-label="Araç veya komut ara"
+          placeholder={t("Araç veya ekran ara… (ör. yazdır, kırp, şifre, dosyalar)")}
+          aria-label={t("Araç veya komut ara")}
           role="combobox"
           aria-expanded={true}
           aria-controls={listId}
@@ -240,12 +244,12 @@ function CommandPaletteDialog({
       </div>
       {hasHandoff && (
         <div className="cmd-palette-context">
-          Aktif dosyalar uyumlu araca otomatik aktarılır.
+          {t("Aktif dosyalar uyumlu araca otomatik aktarılır.")}
         </div>
       )}
-      <ul ref={listRef} id={listId} className="cmd-palette-list" role="listbox" aria-label="Sonuçlar">
+      <ul ref={listRef} id={listId} className="cmd-palette-list" role="listbox" aria-label={t("Sonuçlar")}>
         {items.length === 0 ? (
-          <li className="cmd-palette-empty muted">Eşleşen araç veya ekran bulunamadı.</li>
+          <li className="cmd-palette-empty muted">{t("Eşleşen araç veya ekran bulunamadı.")}</li>
         ) : (
           items.map((item, idx) => {
             const selected = idx === activeIndex;
@@ -265,13 +269,15 @@ function CommandPaletteDialog({
                   <Icon icon={item.icon} size={16} />
                 </span>
                 <div className="cmd-palette-item-main">
-                  <strong>{item.title}</strong>
-                  <span className="muted small">{item.subtitle}</span>
+                  <strong>{t(item.title)}</strong>
+                  <span className="muted small">{t(item.subtitle)}</span>
                 </div>
                 <div className="cmd-palette-item-meta">
-                  {item.handoff && <span className="chip accent small">Aktif dosya</span>}
-                  {item.lacking.length > 0 && <span className="chip warn small">Eksik: {item.lacking.join(", ")}</span>}
-                  <span className="cmd-group">{item.group}</span>
+                  {item.handoff && <span className="chip accent small">{t("Aktif dosya")}</span>}
+                  {item.lacking.length > 0 && (
+                    <span className="chip warn small">{t("Eksik: {list}", { list: item.lacking.join(", ") })}</span>
+                  )}
+                  <span className="cmd-group">{t(item.group)}</span>
                 </div>
               </li>
             );
@@ -279,9 +285,9 @@ function CommandPaletteDialog({
         )}
       </ul>
       <div className="cmd-palette-foot muted small">
-        <span><kbd>↑</kbd><kbd>↓</kbd> gezin</span>
-        <span><kbd>Enter</kbd> aç</span>
-        <span><kbd>Esc</kbd> kapat</span>
+        <span><kbd>↑</kbd><kbd>↓</kbd> {t("gezin")}</span>
+        <span><kbd>Enter</kbd> {t("aç")}</span>
+        <span><kbd>Esc</kbd> {t("kapat")}</span>
       </div>
     </dialog>
   );
