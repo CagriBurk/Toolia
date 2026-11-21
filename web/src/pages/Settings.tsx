@@ -573,7 +573,7 @@ export function EngineList({ data, onRefresh }: { data: EnginesResponse; onRefre
               </span>
             </div>
             <p className="muted">
-              {e.key === "libreoffice" ? t("Word / Excel / PowerPoint → PDF ve Office biçim dönüştürme") : e.needed_for}
+              {e.key === "libreoffice" ? t("Word / Excel / PowerPoint → PDF ve Office biçim dönüştürme") : t(e.needed_for)}
             </p>
             {e.problems.map((p) => (
               <p key={p} className="warn-line">
