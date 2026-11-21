@@ -1,19 +1,15 @@
-"""Masaüstü kurulumu ve kaldırma. Paketteki `Kur.cmd` / kurulu klasördeki `Kaldir.cmd` çağırır:
+"""Masaüstü kurulumu ve kaldırma (Windows ve Linux).
 
-    <paket>\\python\\python.exe -I -m toolia.kurulum kur
-    <kurulum>\\python\\python.exe -I -m toolia.kurulum kaldir
+- **Windows**: `Kur.cmd` / `Kaldir.cmd` → `%LOCALAPPDATA%\\Programs\\Toolia`, masaüstü ve Başlat
+  kısayolu, Gönder menüsü ("PDF'e çevir", "JPG'ye çevir"), "Uygulamalar" kaldırma kaydı.
+  Neden .exe değil: Windows Akıllı Uygulama Denetimi (PLAN.md tuzak #52). Kopyalama
+  `shutil.copyfile` iledir (Zone.Identifier akışı taşınmaz).
+- **Linux**: `kur.sh` / `kaldir.sh` → `~/.local/opt/toolia` (kullanıcı verisi
+  `~/.local/share/Toolia` ayrı kalır), `~/.local/bin/toolia`,
+  `~/.local/share/applications/toolia.desktop` + simge, eksik motorlar için dağıtıma göre
+  (`apt`/`dnf`/`pacman`) tek komut.
 
-Neden bir kurulum programı (.exe) değil: Windows Akıllı Uygulama Denetimi (Smart App Control)
-internetten indirilmiş, imzasız .exe dosyalarını engelliyor (PLAN.md tuzak #52). Paket yalnızca
-imzalı python.org Python'unu çalıştırır; geri kalan her şey Python kodu.
-
-Kurulum yönetici izni istemez: `%LOCALAPPDATA%\\Programs\\Toolia`, masaüstü ve Başlat menüsü
-kısayolu, Gönder menüsünde "PDF'e çevir" ve "JPG'ye çevir", "Uygulamalar"da kaldırma kaydı.
-Kısayollar her kurulumda yeniden yazılır (eski sürümün üzerine kurunca yenileri de gelir); kaldırma
-`shortcut_paths()`'teki hepsini siler. Kopyalama `shutil` ile
-yapılır: indirilen dosyalardaki "internetten geldi" işareti (Zone.Identifier akışı) kopyaya
-taşınmaz. Kullanıcı verisi (`%LOCALAPPDATA%\\Toolia`) kuruluma dokunulmadan kalır; kaldırırken
-silinip silinmeyeceği sorulur.
+Kullanıcı verisi kuruluma dokunulmadan kalır; kaldırırken silinip silinmeyeceği sorulur.
 """
 
 from __future__ import annotations
@@ -22,6 +18,7 @@ import base64
 import contextlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -40,17 +37,30 @@ BREAKAWAY = 0x01000000
 
 
 def default_target() -> Path:
-    return Path(os.environ["LOCALAPPDATA"]) / "Programs" / DIR_NAME
+    if os.name == "nt":
+        return Path(os.environ["LOCALAPPDATA"]) / "Programs" / DIR_NAME
+    return Path.home() / ".local" / "opt" / "toolia"
 
 
 def package_root() -> Path:
-    """Çalışan Python'un ait olduğu paket/kurulum kökü (python\\python.exe → kök)."""
-    return Path(sys.executable).resolve().parent.parent
+    """Çalışan Python'un ait olduğu paket/kurulum kökü (`toolia-kurulum.json` taşıyan üst klasör).
+    Windows'ta `python/python.exe` (2 düzey), Linux'ta `python/bin/python3` (3 düzey)."""
+    exe = Path(sys.executable).resolve()
+    for parent in exe.parents[:4]:
+        if (parent / MARKER).is_file():
+            return parent
+    return exe.parent.parent
 
 
 def spawn_detached(args: list[str], **kw) -> None:
     """Bağımsız süreç: bizim süreç (ve varsa iş nesnemiz) kapanınca kapanmasın. Üst süreç
     ayrılmaya izin vermeyen bir iş nesnesindeyse (bazı terminaller) bayraksız yeniden dener."""
+    if os.name != "nt":
+        kw.setdefault("stdin", subprocess.DEVNULL)
+        kw.setdefault("stdout", subprocess.DEVNULL)
+        kw.setdefault("stderr", subprocess.DEVNULL)
+        subprocess.Popen(args, start_new_session=True, **kw)
+        return
     try:
         subprocess.Popen(args, creationflags=DETACHED | BREAKAWAY | NO_WINDOW, **kw)
     except OSError:
@@ -69,7 +79,7 @@ def _ask(question: str) -> bool:
     return answer in ("e", "evet", "y", "yes")
 
 
-# --- kısayollar (WScript.Shell; PowerShell betiği base64 ile, tırnak sorunu olmasın) ---------
+# --- Windows kısayolları (WScript.Shell) ------------------------------------------------------
 
 def _powershell(script: str) -> None:
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
@@ -170,7 +180,214 @@ def remove_shortcuts() -> None:
         path.unlink(missing_ok=True)
 
 
-# --- kaldırma kaydı ---------------------------------------------------------------------------
+# --- Linux kısayolları ve motor denetimi ------------------------------------------------------
+
+def _linux_desktop_dir(home: Path) -> Path | None:
+    from toolia import engines
+
+    if xdg := engines.find_on_path("xdg-user-dir"):
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            r = subprocess.run([str(xdg), "DESKTOP"], capture_output=True, text=True, timeout=5)
+            p = Path(r.stdout.strip())
+            if r.returncode == 0 and p.is_dir() and p.resolve() != home.resolve():
+                return p
+    for name in ("Desktop", "Masaüstü"):
+        cand = home / name
+        if cand.is_dir():
+            return cand
+    return None
+
+
+def linux_shortcut_paths(home: Path | None = None) -> dict[str, Path]:
+    base = Path(home) if home is not None else Path.home()
+    paths = {
+        "bin": base / ".local" / "bin" / "toolia",
+        "desktop_entry": base / ".local" / "share" / "applications" / "toolia.desktop",
+        "icon": base / ".local" / "share" / "icons" / "hicolor" / "256x256" / "apps" / "toolia.png",
+    }
+    if desk := _linux_desktop_dir(base):
+        paths["masaustu"] = desk / "Toolia.desktop"
+    return paths
+
+
+def _desktop_exec_quote(arg: str) -> str:
+    """Freedesktop Desktop Entry Exec= alanı için güvenli kaçış."""
+    if not any(ch in arg for ch in ' \t\n"\'\\><~|&;$*?#()`'):
+        return arg
+    escaped = arg.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")
+    return f'"{escaped}"'
+
+
+def linux_desktop_entry(target: Path, icon: str = "toolia") -> str:
+    py = _desktop_exec_quote(str(target / "python" / "bin" / "python3"))
+    return (
+        "[Desktop Entry]\n"
+        "Version=1.0\n"
+        "Type=Application\n"
+        f"Name={APP_NAME}\n"
+        "GenericName=PDF Toolkit\n"
+        "GenericName[tr]=PDF Araç Seti\n"
+        "Comment=Offline PDF and document toolkit\n"
+        "Comment[tr]=Çevrimdışı PDF ve dosya araçları\n"
+        f"Exec={py} -I -m toolia uygulama\n"
+        f"Icon={icon}\n"
+        "Terminal=false\n"
+        "Categories=Office;Utility;\n"
+        "StartupNotify=true\n"
+        "StartupWMClass=Toolia\n"
+    )
+
+
+def linux_bin_launcher(target: Path) -> str:
+    py = shlex.quote(str(target / "python" / "bin" / "python3"))
+    return f'#!/bin/sh\nexec {py} -I -m toolia "$@"\n'
+
+
+def create_linux_shortcuts(target: Path, *, home: Path | None = None,
+                           desktop_shortcut: bool = False) -> None:
+    from toolia import engines
+
+    links = linux_shortcut_paths(home)
+    links["bin"].parent.mkdir(parents=True, exist_ok=True)
+    links["bin"].write_text(linux_bin_launcher(target), encoding="utf-8", newline="\n")
+    links["bin"].chmod(0o755)
+
+    icon_value = "toolia"
+    src_icon = target / "simgeler" / "toolia-256.png"
+    if src_icon.is_file():
+        links["icon"].parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src_icon, links["icon"])
+    else:
+        icon_value = str(src_icon)
+
+    entry_text = linux_desktop_entry(target, icon=icon_value)
+    links["desktop_entry"].parent.mkdir(parents=True, exist_ok=True)
+    links["desktop_entry"].write_text(entry_text, encoding="utf-8", newline="\n")
+    links["desktop_entry"].chmod(0o644)
+
+    if desktop_shortcut and "masaustu" in links:
+        links["masaustu"].write_text(entry_text, encoding="utf-8", newline="\n")
+        links["masaustu"].chmod(0o755)
+        if gio := engines.find_on_path("gio"):
+            with contextlib.suppress(OSError, subprocess.SubprocessError):
+                subprocess.run([str(gio), "set", str(links["masaustu"]),
+                                "metadata::trusted", "true"],
+                               capture_output=True, timeout=5)
+
+    if upd := engines.find_on_path("update-desktop-database"):
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            subprocess.run([str(upd), str(links["desktop_entry"].parent)],
+                           capture_output=True, timeout=10)
+    if gtk_ic := engines.find_on_path("gtk-update-icon-cache"):
+        hicolor = links["icon"].parents[2]
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            subprocess.run([str(gtk_ic), "-q", "-t", "-f", str(hicolor)],
+                           capture_output=True, timeout=10)
+
+
+def remove_linux_shortcuts(*, home: Path | None = None) -> None:
+    for path in linux_shortcut_paths(home).values():
+        path.unlink(missing_ok=True)
+
+
+def detect_linux_pkg_manager(os_release: str | None = None) -> str | None:
+    """`/etc/os-release` ya da PATH üzerinden paket yöneticisini (`apt`/`dnf`/`pacman`) bulur."""
+    text = os_release
+    if text is None:
+        p = Path("/etc/os-release")
+        text = p.read_text(encoding="utf-8", errors="ignore") if p.is_file() else ""
+    low = text.lower()
+    if any(k in low for k in ("ubuntu", "debian", "linuxmint", "pop", "elementary", "kali")):
+        return "apt"
+    if any(k in low for k in ("fedora", "rhel", "centos", "rocky", "almalinux")):
+        return "dnf"
+    if any(k in low for k in ("arch", "manjaro", "endeavouros", "cachyos")):
+        return "pacman"
+    from toolia import engines
+
+    for mgr, exe in (("apt", "apt-get"), ("dnf", "dnf"), ("pacman", "pacman")):
+        if engines.find_on_path(exe):
+            return mgr
+    return None
+
+
+_LINUX_ENGINE_PKGS: dict[str, dict[str, list[str]]] = {
+    "apt": {
+        "libreoffice": ["libreoffice-writer", "libreoffice-calc", "libreoffice-impress"],
+        "tesseract": ["tesseract-ocr", "tesseract-ocr-tur", "tesseract-ocr-eng"],
+        "ghostscript": ["ghostscript"],
+        "browser": ["chromium"],
+    },
+    "dnf": {
+        "libreoffice": ["libreoffice-writer", "libreoffice-calc", "libreoffice-impress"],
+        "tesseract": ["tesseract", "tesseract-langpack-tur", "tesseract-langpack-eng"],
+        "ghostscript": ["ghostscript"],
+        "browser": ["chromium"],
+    },
+    "pacman": {
+        "libreoffice": ["libreoffice-fresh"],
+        "tesseract": ["tesseract", "tesseract-data-tur", "tesseract-data-eng"],
+        "ghostscript": ["ghostscript"],
+        "browser": ["chromium"],
+    },
+}
+
+
+def linux_missing_engine_command(statuses: list, pkg_manager: str | None) -> list[str] | None:
+    """Eksik motorlar için tek paket yöneticisi komutu (`['sudo', ...]`). Eksik yoksa None."""
+    if pkg_manager not in _LINUX_ENGINE_PKGS:
+        return None
+    table = _LINUX_ENGINE_PKGS[pkg_manager]
+    pkgs: list[str] = []
+    for st in statuses:
+        if st.ok:
+            continue
+        if st.key == "tesseract" and st.available:
+            # Yalnızca eksik dil paketleri.
+            if pkg_manager == "apt":
+                pkgs.extend(["tesseract-ocr-tur", "tesseract-ocr-eng"])
+            elif pkg_manager == "dnf":
+                pkgs.extend(["tesseract-langpack-tur", "tesseract-langpack-eng"])
+            elif pkg_manager == "pacman":
+                pkgs.extend(["tesseract-data-tur", "tesseract-data-eng"])
+        elif st.key in table:
+            pkgs.extend(table[st.key])
+    pkgs = list(dict.fromkeys(pkgs))
+    if not pkgs:
+        return None
+    if pkg_manager == "apt":
+        return ["sudo", "apt-get", "install", "-y", *pkgs]
+    if pkg_manager == "dnf":
+        return ["sudo", "dnf", "install", "-y", *pkgs]
+    return ["sudo", "pacman", "-S", "--needed", *pkgs]
+
+
+def _check_linux_engines() -> None:
+    from toolia import engines
+    from toolia.settings import Settings
+
+    statuses = engines.detect_all(Settings())
+    _say("\nMotor durumu:")
+    for st in statuses:
+        mark = "[OK]" if st.ok else ("[!!]" if st.available else "[--]")
+        _say(f"  {mark} {st.name:<16} {st.version or '-'}")
+        for note in st.problems + st.warnings:
+            _say(f"       -> {note}")
+    mgr = detect_linux_pkg_manager()
+    cmd = linux_missing_engine_command(statuses, mgr)
+    if not cmd:
+        return
+    pretty = " ".join(cmd)
+    _say(f"\nEksik motorları kurmak için tek komut:\n  {pretty}")
+    if os.environ.get("TOOLIA_KURULUM_MOTOR_SORMA") == "0":
+        return
+    if _ask("Bu komutu şimdi sudo ile çalıştırayım mı?"):
+        if mgr == "apt":
+            subprocess.run(["sudo", "apt-get", "update"], check=False)
+        subprocess.run(cmd, check=False)
+
+
+# --- Windows kaldırma kaydı -------------------------------------------------------------------
 
 def register_uninstall(target: Path, version: str) -> None:
     import winreg
@@ -241,11 +458,12 @@ def _running_app(target: Path) -> bool:
 
 # --- kur / kaldır -----------------------------------------------------------------------------
 
-def install(source: Path, target: Path, *, launch: bool = True, shortcuts: bool = True) -> int:
+def install(source: Path, target: Path, *, launch: bool = True, shortcuts: bool = True,
+            check_engines: bool = True) -> int:
     info = json.loads((source / MARKER).read_text(encoding="utf-8"))
     version = info.get("version", "?")
     _say(f"{APP_NAME} {version} kuruluyor → {target}")
-    old = legacy_install(target)
+    old = legacy_install(target) if os.name == "nt" else None
     if old is not None and _running_app(old):
         _say("Eski sürüm (PDF Atölyesi) açık. Pencereyi kapatıp kurulumu yeniden çalıştır.")
         return 1
@@ -259,21 +477,39 @@ def install(source: Path, target: Path, *, launch: bool = True, shortcuts: bool 
             _say("Önceki sürüm kaldırılıyor (belgelerin ve ayarların korunur)...")
             shutil.rmtree(target)
         _say("Dosyalar kopyalanıyor (bir iki dakika sürebilir)...")
-        shutil.copytree(source, target, copy_function=shutil.copyfile)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if os.name == "nt":
+            # Zone.Identifier (MOTW) akışı kopyaya taşınmasın.
+            shutil.copytree(source, target, copy_function=shutil.copyfile)
+        else:
+            # Linux'ta yürütme izinleri (+x) ve Python iç sembolik bağları korunmalı.
+            shutil.copytree(source, target, symlinks=True)
     marker = info | {"installed": time.time(), "source": str(source)}
     (target / MARKER).write_text(json.dumps(marker, ensure_ascii=False, indent=1),
                                  encoding="utf-8")
     if shortcuts:
         _say("Kısayollar oluşturuluyor...")
-        create_shortcuts(target)
-        register_uninstall(target, version)
-        if old is not None:
-            _say("Eski sürüm (PDF Atölyesi) kaldırılıyor (belgelerin korunur)...")
-            remove_legacy_install(old)
-    _say("Kurulum tamam. Masaüstündeki \"Toolia\" simgesiyle açabilirsin.")
-    if launch:
-        spawn_detached([str(target / "python" / "pythonw.exe"), "-I", "-m", "toolia",
-                        "uygulama"], cwd=target)
+        if os.name == "nt":
+            create_shortcuts(target)
+            register_uninstall(target, version)
+            if old is not None:
+                _say("Eski sürüm (PDF Atölyesi) kaldırılıyor (belgelerin korunur)...")
+                remove_legacy_install(old)
+        else:
+            create_linux_shortcuts(target)
+    if os.name == "nt":
+        _say("Kurulum tamam. Masaüstündeki \"Toolia\" simgesiyle açabilirsin.")
+        if launch:
+            spawn_detached([str(target / "python" / "pythonw.exe"), "-I", "-m", "toolia",
+                            "uygulama"], cwd=target)
+    else:
+        if check_engines:
+            _check_linux_engines()
+        _say("\nKurulum tamam. Uygulama menüsünden \"Toolia\" ile ya da terminalden "
+             "`~/.local/bin/toolia uygulama` komutuyla açabilirsin.")
+        if launch and (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+            spawn_detached([str(target / "python" / "bin" / "python3"), "-I", "-m", "toolia",
+                            "uygulama"], cwd=target)
     return 0
 
 
@@ -291,21 +527,26 @@ def uninstall(target: Path, *, assume_yes: bool = False, remove_data: bool | Non
     data_dir = Path(data_dir) if data_dir is not None else load_settings().data_dir
     if remove_data is None:
         remove_data = _ask(f"Belgelerin, imzaların ve ayarların da silinsin mi? ({data_dir})")
-    remove_shortcuts()
-    unregister_uninstall()
+    if os.name == "nt":
+        remove_shortcuts()
+        unregister_uninstall()
+    else:
+        remove_linux_shortcuts()
     if remove_data:
         shutil.rmtree(data_dir, ignore_errors=True)
         _say("Veriler silindi.")
     else:
         _say(f"Veriler korundu: {data_dir}")
-    # Çalışan python.exe kurulum klasöründe: klasörü, bu süreç çıktıktan sonra ayrı bir
-    # komut penceresi siler.
-    script = Path(tempfile.gettempdir()) / "toolia-kaldir.cmd"
-    script.write_text(
-        "@echo off\r\n"
-        f"timeout /t 2 /nobreak >nul\r\nrmdir /s /q \"{target}\"\r\n"
-        "del \"%~f0\"\r\n", encoding="mbcs")
-    spawn_detached(["cmd", "/c", str(script)])
+    # Çalışan Python kurulum klasöründe: klasörü, bu süreç çıktıktan sonra ayrı bir kabuk siler.
+    if os.name == "nt":
+        script = Path(tempfile.gettempdir()) / "toolia-kaldir.cmd"
+        script.write_text(
+            "@echo off\r\n"
+            f"timeout /t 2 /nobreak >nul\r\nrmdir /s /q \"{target}\"\r\n"
+            "del \"%~f0\"\r\n", encoding="mbcs")
+        spawn_detached(["cmd", "/c", str(script)])
+    else:
+        spawn_detached(["sh", "-c", 'sleep 1; rm -rf -- "$1"', "toolia-kaldir", str(target)])
     _say(f"{APP_NAME} kaldırıldı.")
     return 0
 
@@ -331,5 +572,6 @@ if __name__ == "__main__":
             stream.reconfigure(encoding="utf-8", errors="replace")
     code = main(sys.argv[1:])
     if os.environ.get("TOOLIA_KURULUM_BEKLEME") != "0":
-        input("\nKapatmak için Enter'a bas...")
+        with contextlib.suppress(EOFError):
+            input("\nKapatmak için Enter'a bas...")
     sys.exit(code)

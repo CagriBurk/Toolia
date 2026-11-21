@@ -84,11 +84,20 @@ def write_ico(path: Path) -> None:
 # Arayüzün sekme / pencere simgeleri (web/public). SVG değil PNG: Edge uygulama penceresi görev
 # çubuğu simgesini sayfa simgesinden alır ve SVG'yi 16 px'te çizip büyütüyordu (bulanık, 0.12.1).
 WEB_ICON_SIZES = (16, 32, 48, 256)
+LINUX_ICON_SIZES = (48, 256)
 
 
 def write_web_icons(public: Path) -> None:
     for s in WEB_ICON_SIZES:
         render(s).save(public / f"simge-{s}.png", optimize=True)
+
+
+def write_linux_icons(dest: Path) -> None:
+    """Linux masaüstü ve uygulama menüsü simgeleri (PNG + SVG)."""
+    dest.mkdir(parents=True, exist_ok=True)
+    for s in LINUX_ICON_SIZES:
+        render(s).save(dest / f"toolia-{s}.png", optimize=True)
+    (dest / "toolia.svg").write_text(svg() + "\n", encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":

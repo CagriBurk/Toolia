@@ -134,3 +134,55 @@ jobs:
             build/Toolia-*.zip
             build/Toolia-*.zip.sha256
           retention-days: 14
+
+  # Linux masaüstü paketi (gömülü python-build-standalone 3.11 + bağımlılıklar + arayüz).
+  # Geçici $HOME altında kur.sh ve kaldirma yolu da uçtan uca denenir.
+  paket-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Arayüzü derle
+        run: |
+          npm --prefix web ci --no-fund --no-audit
+          npm --prefix web run build
+
+      - name: Linux paketini üret ve dene
+        run: uv run python paket/derle.py --linux
+
+      - name: Kurulum ve kaldırma denemesi (geçici HOME)
+        run: |
+          TMPHOME="$(mktemp -d)"
+          WORK="$(mktemp -d)"
+          tar -xzf build/Toolia-*-linux-x86_64.tar.gz -C "$WORK"
+          PKG="$(find "$WORK" -maxdepth 1 -type d -name 'Toolia-*' | head -n 1)"
+          HOME="$TMPHOME" DISPLAY="" WAYLAND_DISPLAY="" \
+            TOOLIA_KURULUM_BEKLEME=0 TOOLIA_KURULUM_MOTOR_SORMA=0 \
+            "$PKG/kur.sh"
+          test -x "$TMPHOME/.local/bin/toolia"
+          test -f "$TMPHOME/.local/share/applications/toolia.desktop"
+          test -f "$TMPHOME/.local/share/icons/hicolor/256x256/apps/toolia.png"
+          HOME="$TMPHOME" "$TMPHOME/.local/bin/toolia" --help >/dev/null
+          HOME="$TMPHOME" "$TMPHOME/.local/opt/toolia/python/bin/python3" -I -c \
+            "from pathlib import Path; from toolia import kurulum; \
+             assert kurulum.uninstall(Path('$TMPHOME/.local/opt/toolia'), assume_yes=True, remove_data=False) == 0"
+          test ! -e "$TMPHOME/.local/bin/toolia"
+          test ! -e "$TMPHOME/.local/share/applications/toolia.desktop"
+          rm -rf "$TMPHOME" "$WORK"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Toolia-linux
+          path: |
+            build/Toolia-*-linux-x86_64.tar.gz
+            build/Toolia-*-linux-x86_64.tar.gz.sha256
+          retention-days: 14
