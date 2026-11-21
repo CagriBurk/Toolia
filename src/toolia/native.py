@@ -15,6 +15,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from toolia import engines
 from toolia.errors import TooliaError
 
 log = logging.getLogger("toolia.native")
@@ -40,7 +41,23 @@ if ($d.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $d.Sele
 
 class NativeUnavailableError(TooliaError):
     def __init__(self) -> None:
-        super().__init__("Bu özellik yalnızca Windows'ta, uygulamanın çalıştığı bilgisayarda var.")
+        super().__init__(
+            "Bu özellik yalnızca uygulamanın çalıştığı masaüstü bilgisayarda var "
+            "(Linux'ta zenity/kdialog veya xdg-open gerekir)."
+        )
+
+
+def _has_display() -> bool:
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+def is_available() -> bool:
+    """Klasör seçme veya dosya yöneticisinde gösterme bu ortamda destekleniyor mu?"""
+    if engines.on_windows():
+        return True
+    if not _has_display():
+        return False
+    return any(engines.find_on_path(t) for t in ("zenity", "kdialog", "dbus-send", "xdg-open"))
 
 
 def _ps_literal(text: str) -> str:
@@ -54,10 +71,36 @@ def _clean_env() -> dict:
     return env
 
 
-def pick_folder(initial: str | None = None, description: str = "Klasör seç") -> str | None:
-    """Windows'un klasör seçme penceresini açar; seçilen yol ya da vazgeçilirse None."""
-    if os.name != "nt":
+def _pick_folder_linux(initial: str | None, description: str) -> str | None:
+    if not _has_display():
         raise NativeUnavailableError()
+    start = initial if initial and Path(initial).is_dir() else None
+    if zenity := engines.find_on_path("zenity"):
+        cmd = [str(zenity), "--file-selection", "--directory", f"--title={description}"]
+        if start:
+            cmd.append(f"--filename={start.rstrip('/')}/")
+    elif kdialog := engines.find_on_path("kdialog"):
+        cmd = [str(kdialog), "--getexistingdirectory", start or str(Path.home()),
+               "--title", description]
+    else:
+        raise NativeUnavailableError()
+    try:
+        out = subprocess.run(cmd, capture_output=True, timeout=PICK_TIMEOUT_S, check=False)
+    except subprocess.TimeoutExpired:
+        return None
+    if out.returncode == 1:  # kullanıcı vazgeçti
+        return None
+    if out.returncode != 0:
+        log.warning("Klasör seçme penceresi açılamadı: %s",
+                    out.stderr.decode("utf-8", "replace")[-500:])
+        raise TooliaError("Klasör seçme penceresi açılamadı; yolu elle yaz.")
+    return out.stdout.decode("utf-8", "replace").strip() or None
+
+
+def pick_folder(initial: str | None = None, description: str = "Klasör seç") -> str | None:
+    """Masaüstünün klasör seçme penceresini açar; seçilen yol ya da vazgeçilirse None."""
+    if not engines.on_windows():
+        return _pick_folder_linux(initial, description)
     script = (_PICK_SCRIPT.replace("__ACIKLAMA__", _ps_literal(description))
               .replace("__BASLANGIC__", _ps_literal(initial or "")))
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
@@ -77,10 +120,34 @@ def pick_folder(initial: str | None = None, description: str = "Klasör seç") -
     return path or None
 
 
-def reveal(path: Path) -> None:
-    """Dosyayı Gezgin'de seçili gösterir."""
-    if os.name != "nt":
+def _reveal_linux(path: Path) -> None:
+    if not _has_display():
         raise NativeUnavailableError()
+    # Freedesktop FileManager1: dosyayı dosya yöneticisinde seçili gösterir (GNOME/KDE/XFCE).
+    if dbus := engines.find_on_path("dbus-send"):
+        try:
+            r = subprocess.run(
+                [str(dbus), "--session", "--dest=org.freedesktop.FileManager1",
+                 "--type=method_call", "/org/freedesktop/FileManager1",
+                 "org.freedesktop.FileManager1.ShowItems",
+                 f"array:string:{path.resolve().as_uri()}", "string:"],
+                capture_output=True, timeout=5, check=False,
+            )
+            if r.returncode == 0:
+                return
+        except (OSError, subprocess.SubprocessError):
+            pass
+    if xdg := engines.find_on_path("xdg-open"):
+        subprocess.Popen([str(xdg), str(path.parent)], start_new_session=True)
+        return
+    raise NativeUnavailableError()
+
+
+def reveal(path: Path) -> None:
+    """Dosyayı dosya yöneticisinde seçili gösterir."""
+    if not engines.on_windows():
+        _reveal_linux(path)
+        return
     # explorer.exe hemen döner (işi çalışan Gezgin'e devreder); çıkış kodu anlamsızdır.
     subprocess.Popen(reveal_command(path),
                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
