@@ -327,12 +327,14 @@ def install_packages_linux(site: Path, py_exe: Path, work: Path) -> None:
     req = work / "gereksinimler.txt"
     run(["uv", "export", "--frozen", "--no-dev", "--no-hashes", "--no-emit-project",
          "--format", "requirements-txt", "-o", req], cwd=ROOT)
-    run(["uv", "pip", "install", "--quiet", "--python", py_exe, "--only-binary", ":all:",
-         "-r", req], cwd=ROOT)
+    # python-build-standalone PEP 668 EXTERNALLY-MANAGED taşır; paket kendi izole Python'umuz.
+    base = ["uv", "pip", "install", "--quiet", "--python", py_exe, "--break-system-packages",
+            "--only-binary", ":all:"]
+    run([*base, "-r", req], cwd=ROOT)
     wheel_dir = work / "teker"
     run(["uv", "build", "--wheel", "--out-dir", wheel_dir], cwd=ROOT)
     wheel = next(wheel_dir.glob("toolia-*.whl"))
-    run(["uv", "pip", "install", "--quiet", "--no-deps", "--python", py_exe, wheel], cwd=ROOT)
+    run([*base, "--no-deps", wheel], cwd=ROOT)
     dist = ROOT / "web" / "dist"
     if not (dist / "index.html").is_file():
         raise SystemExit("Arayüz derlenmemiş: npm --prefix web run build")
