@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import type { EnginesResponse } from "../api";
 import BrandMark from "../components/BrandMark";
 import Icon from "../components/Icon";
+import { t } from "../i18n";
 import { EngineList } from "./Settings";
 
 interface Props {
@@ -29,11 +30,12 @@ export default function Welcome({ engines, onRefresh, onDone }: Props) {
         {/* Üst çubuktaki marka işaretinin büyüğü. */}
         <BrandMark size={56} className="welcome-mark" />
         <h1 id="hosgeldin" ref={heading} tabIndex={-1}>
-          Toolia'ya hoş geldin
+          {t("Toolia'ya hoş geldin")}
         </h1>
         <p className="lead">
-          Resim, Office ve PDF biçim dönüştürme, sayfa düzenleme, imza ve yazı ekleme, sıkıştırma, OCR, Markdown → PDF:
-          hepsi bu bilgisayarda, kayıt ve reklam olmadan.
+          {t(
+            "Resim, Office ve PDF biçim dönüştürme, sayfa düzenleme, imza ve yazı ekleme, sıkıştırma, OCR, Markdown → PDF: hepsi bu bilgisayarda, kayıt ve reklam olmadan.",
+          )}
         </p>
       </div>
 
@@ -44,27 +46,28 @@ export default function Welcome({ engines, onRefresh, onDone }: Props) {
               <Icon icon={icon} size={19} strokeWidth={1.9} />
             </span>
             <span className="tour-text">
-              <strong>{title}</strong>
-              <span>{text}</span>
+              <strong>{t(title)}</strong>
+              <span>{t(text)}</span>
             </span>
           </li>
         ))}
       </ol>
 
       <div className="welcome-ready">
-        <h2>Hazırlık</h2>
+        <h2>{t("Hazırlık")}</h2>
         {!engines ? (
-          <p className="muted">Motorlar denetleniyor…</p>
+          <p className="muted">{t("Motorlar denetleniyor…")}</p>
         ) : missing.length === 0 ? (
           <p className="ok-line">
             <Icon icon={CircleCheck} />
-            Her şey hazır: bütün araçlar kullanılabilir.
+            {t("Her şey hazır: bütün araçlar kullanılabilir.")}
           </p>
         ) : (
           <>
             <p className="welcome-missing">
-              Araçların çoğu hemen çalışır. Aşağıdakiler eksik; yalnızca yanında yazan araçlar için gerekir, istersen sonra
-              Ayarlar'dan da kurabilirsin.
+              {t(
+                "Araçların çoğu hemen çalışır. Aşağıdakiler eksik; yalnızca yanında yazan araçlar için gerekir, istersen sonra Ayarlar'dan da kurabilirsin.",
+              )}
             </p>
             <EngineList data={{ ...engines, engines: missing }} onRefresh={onRefresh} />
           </>
@@ -73,11 +76,11 @@ export default function Welcome({ engines, onRefresh, onDone }: Props) {
 
       <div className="form-actions welcome-actions">
         <button type="button" className="primary" onClick={onDone}>
-          Başla
+          {t("Başla")}
           <Icon icon={ArrowRight} />
         </button>
         <a className="text-link" href="#/ayarlar" onClick={onDone}>
-          Önce ayarlara bak
+          {t("Önce ayarlara bak")}
         </a>
       </div>
     </section>

@@ -120,8 +120,13 @@ class MarkdownPrinter:
         self._tmp: tempfile.TemporaryDirectory | None = None
 
     def __enter__(self) -> MarkdownPrinter:
+        from toolia import engines
+
         # Kısa yol: uzun klasör yolları Windows'ta sorun çıkarıyor (PLAN.md tuzak #17).
-        self._tmp = tempfile.TemporaryDirectory(prefix="pa-md-")
+        # Snap tarayıcısı `/tmp`'yi ayrı görür: onun erişebildiği üst klasör kullanılır.
+        self._tmp = tempfile.TemporaryDirectory(
+            prefix="pa-md-", dir=engines.snap_temp_base(self.browser_path)
+        )
         shutil.copytree(ASSETS / "katex", Path(self._tmp.name) / "katex")
         try:
             self._ob.start()

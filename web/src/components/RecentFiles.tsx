@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Download, FolderOpen, LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage, formatSize, type FileMeta } from "../api";
+import { locale, t } from "../i18n";
 import { useJobActivity } from "../hooks";
 import { convertTargets } from "../tools";
 import { fileTypeTone } from "./FilePicker";
@@ -13,12 +14,12 @@ const SIGNATURE_TAG = "signature";
 /** "3 dk önce", "dün", "12 Kas" gibi kısa zaman. */
 export function ago(seconds: number, now = Date.now()): string {
   const diff = Math.max(0, now / 1000 - seconds);
-  if (diff < 60) return "az önce";
-  if (diff < 3600) return `${Math.floor(diff / 60)} dk önce`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`;
-  if (diff < 2 * 86400) return "dün";
-  if (diff < 7 * 86400) return `${Math.floor(diff / 86400)} gün önce`;
-  return new Date(seconds * 1000).toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+  if (diff < 60) return t("az önce");
+  if (diff < 3600) return t("{n} dk önce", { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t("{n} sa önce", { n: Math.floor(diff / 3600) });
+  if (diff < 2 * 86400) return t("dün");
+  if (diff < 7 * 86400) return t("{n} gün önce", { n: Math.floor(diff / 86400) });
+  return new Date(seconds * 1000).toLocaleDateString(locale(), { day: "numeric", month: "short" });
 }
 
 /** Dosya türü rozetindeki kısa ad: uzantı (en çok 4 harf). */
@@ -28,8 +29,10 @@ function typeLabel(f: FileMeta): string {
 }
 
 function retentionText(hours: number | undefined): string {
-  if (!hours) return "Bir süre açılmayan dosyalar";
-  return hours % 24 === 0 ? `${hours / 24} günden uzun süre açılmayan dosyalar` : `${hours} saatten uzun süre açılmayan dosyalar`;
+  if (!hours) return t("Bir süre açılmayan dosyalar");
+  return hours % 24 === 0
+    ? t("{n} günden uzun süre açılmayan dosyalar", { n: hours / 24 })
+    : t("{n} saatten uzun süre açılmayan dosyalar", { n: hours });
 }
 
 /** Ana sayfadaki son dosyalar kartı (en yeniler üstte). Sunucu yoklanmaz: pencereye dönülünce,
@@ -71,21 +74,21 @@ export default function RecentFiles({ retentionHours, refreshKey = 0 }: { retent
   return (
     <section className="card recent" aria-labelledby="son-dosyalar">
       <div className="recent-head">
-        <h2 id="son-dosyalar">Son dosyalar</h2>
+        <h2 id="son-dosyalar">{t("Son dosyalar")}</h2>
         <a href="#/isler" className="text-link">
-          Tümünü gör
+          {t("Tümünü gör")}
         </a>
       </div>
       {error ? (
-        <p className="recent-empty error-text">Son dosyalar alınamadı: {error}</p>
+        <p className="recent-empty error-text">{t("Son dosyalar alınamadı: {error}", { error })}</p>
       ) : files === null ? (
-        <p className="recent-empty muted">Yükleniyor…</p>
+        <p className="recent-empty muted">{t("Yükleniyor…")}</p>
       ) : files.length === 0 ? (
         <div className="recent-empty-box">
           <span className="tile">
             <Icon icon={FolderOpen} size={19} />
           </span>
-          <p className="muted">Henüz dosya yok. İlk dosyanı bırak; en son çalıştıkların burada görünür.</p>
+          <p className="muted">{t("Henüz dosya yok. İlk dosyanı bırak; en son çalıştıkların burada görünür.")}</p>
         </div>
       ) : (
         <ul className="recent-list">
@@ -103,25 +106,25 @@ export default function RecentFiles({ retentionHours, refreshKey = 0 }: { retent
                   <p className="recent-meta">
                     {[
                       formatSize(f.size),
-                      f.page_count ? `${f.page_count} sayfa` : null,
+                      f.page_count ? t("{n} sayfa", { n: f.page_count }) : null,
                       ago(f.updated),
-                      f.pinned ? "sabitlendi" : null,
+                      f.pinned ? t("sabitlendi") : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
                 </div>
                 {f.kind === "pdf" && (
-                  <a className="icon-button" href={`#/duzenle/${f.id}`} aria-label={`${f.name} dosyasını düzenleyicide aç`} title="Düzenleyicide aç">
+                  <a className="icon-button" href={`#/duzenle/${f.id}`} aria-label={t("{name} dosyasını düzenleyicide aç", { name: f.name })} title={t("Düzenleyicide aç")}>
                     <Icon icon={LayoutGrid} />
                   </a>
                 )}
                 {canConvert && (
-                  <a className="icon-button" href={`#/donustur?dosya=${encodeURIComponent(f.id)}`} aria-label={`${f.name} dosyasını dönüştür`} title="Biçim Dönüştür'de aç">
+                  <a className="icon-button" href={`#/donustur?dosya=${encodeURIComponent(f.id)}`} aria-label={t("{name} dosyasını dönüştür", { name: f.name })} title={t("Biçim Dönüştür'de aç")}>
                     <Icon icon={ArrowLeftRight} />
                   </a>
                 )}
-                <a className="icon-button" href={api.downloadUrl(f.id)} aria-label={`${f.name} dosyasını indir`} title="İndir">
+                <a className="icon-button" href={api.downloadUrl(f.id)} aria-label={t("{name} dosyasını indir", { name: f.name })} title={t("İndir")}>
                   <Icon icon={Download} />
                 </a>
               </li>
@@ -130,7 +133,7 @@ export default function RecentFiles({ retentionHours, refreshKey = 0 }: { retent
         </ul>
       )}
       <p className="recent-note">
-        {retentionText(retentionHours)} kendiliğinden silinir. Saklamak istediklerini İşler ve dosyalar ekranında sabitle.
+        {t("{text} kendiliğinden silinir. Saklamak istediklerini İşler ve dosyalar ekranında sabitle.", { text: retentionText(retentionHours) })}
       </p>
     </section>
   );

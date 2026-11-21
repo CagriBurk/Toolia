@@ -1,8 +1,8 @@
 # Toolia
 
-**An offline PDF and document toolkit for Windows.** Convert, edit, OCR, compress and encrypt
+**An offline PDF and document toolkit for Windows and Linux.** Convert, edit, OCR, compress and encrypt
 documents on your own machine: no sign-up, no upload limits, and files never leave the computer.
-The interface is in Turkish; Türkçe açıklama aşağıda.
+The interface is available in Turkish and English; Türkçe açıklama aşağıda.
 
 ![Toolia home screen](docs/img/home.png)
 
@@ -40,9 +40,10 @@ The interface is in Turkish; Türkçe açıklama aşağıda.
 - **Testing and CI:** 540+ pytest tests (unit, security and end-to-end with the built UI),
   85 Vitest tests, ruff and ESLint. GitHub Actions runs everything on Windows and Ubuntu on
   every push.
-- **Distribution:** a one-file installer package with no admin rights and no Python/Node
-  needed, versioned releases with a [CHANGELOG](CHANGELOG.md) and a SHA-256 checksum next to
-  every package.
+- **Distribution:** ready-made packages for Windows (`.zip` + `Kur.cmd`) and Linux
+  (`-linux-x86_64.tar.gz` + `./kur.sh`) with embedded Python, no admin rights needed for app
+  installation, versioned releases with a [CHANGELOG](CHANGELOG.md) and a SHA-256 checksum next
+  to every package.
 
 ## Tech stack
 
@@ -59,8 +60,8 @@ uv run python -m toolia serve        # http://127.0.0.1:8790
 ```
 
 LibreOffice, Tesseract and Ghostscript are optional engines; the Settings page shows which
-ones are missing and how to install them. Windows users can instead download the ready-made
-package from [Releases](https://github.com/CagriBurk/Toolia/releases).
+ones are missing and how to install them. Ready-made packages for Windows (`.zip`) and Linux
+(`-linux-x86_64.tar.gz`) are available on [Releases](https://github.com/CagriBurk/Toolia/releases).
 
 More documentation (in Turkish): [user guide](docs/KULLANIM.md),
 [security hardening plan](GUVENLIK_PLANI.md) and [changelog](CHANGELOG.md).
@@ -91,6 +92,15 @@ Dosyalar internete çıkmaz; kayıt, reklam ya da dosya boyutu sınırı yoktur.
 **Windows paketi:** [Releases](https://github.com/CagriBurk/Toolia/releases) sayfasından
 `Toolia-<sürüm>.zip` dosyasını indir, ayıkla ve `Kur.cmd` dosyasına çift tıkla. Python ya da
 yönetici izni gerekmez.
+
+**Linux paketi:** [Releases](https://github.com/CagriBurk/Toolia/releases) sayfasından
+`Toolia-<sürüm>-linux-x86_64.tar.gz` dosyasını indir, ayıkla ve `./kur.sh` çalıştır. Gömülü
+Python paketin içindedir; eksik sistem motorları (`apt` / `dnf` / `pacman`) kurulum sonunda
+tek komutla önerilir.
+
+**Bütünlük doğrulama (isteğe bağlı):** Her paketin yanında `.zip.sha256` / `.tar.gz.sha256`
+özet dosyası vardır — Windows'ta `Get-FileHash Toolia-<sürüm>.zip`, Linux'ta
+`sha256sum -c Toolia-<sürüm>-linux-x86_64.tar.gz.sha256` ile doğrulanır.
 
 **Kaynak koddan:**
 

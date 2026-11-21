@@ -41,9 +41,15 @@ def launch_offline(playwright, executable_path: str, marker: str | None = None):
     """Başsız, ağsız tarayıcı. `marker`: komut satırına eklenen (tarayıcının yok saydığı) işaret;
     takılan ya da iptal edilen baskıda süreç ağacı bununla bulunup öldürülür
     (`OfflineBrowser`)."""
+    import os
+
+    from toolia import engines
+
     args = OFFLINE_ARGS + ([f"{MARKER_FLAG}={marker}"] if marker else [])
-    return playwright.chromium.launch(executable_path=executable_path, headless=True,
-                                      args=args)
+    kwargs: dict = {"executable_path": executable_path, "headless": True, "args": args}
+    if snap_tmp := engines.snap_temp_base(executable_path):
+        kwargs["env"] = {**os.environ, "TMPDIR": str(snap_tmp)}
+    return playwright.chromium.launch(**kwargs)
 
 
 class OfflineBrowser:

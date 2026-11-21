@@ -11,6 +11,7 @@ import {
 } from "react";
 import { api, errorMessage, type UserSnippet } from "../api";
 import { firstLine, presetBody, SNIPPET_GROUPS, SNIPPETS, suggestName } from "../snippets";
+import { t } from "../i18n";
 import { toast } from "../toast";
 import Icon from "./Icon";
 import Modal from "./Modal";
@@ -163,7 +164,7 @@ export default function SnippetMenu({ getSource, onInsert }: Props) {
     await load();
   };
 
-  const saveLabel = hasSelection ? "Seçimi şablon olarak kaydet…" : "Notu şablon olarak kaydet…";
+  const saveLabel = hasSelection ? t("Seçimi şablon olarak kaydet…") : t("Notu şablon olarak kaydet…");
 
   return (
     <div className="snippet-menu" ref={wrap}>
@@ -183,22 +184,22 @@ export default function SnippetMenu({ getSource, onInsert }: Props) {
         }}
       >
         <Icon icon={LayoutTemplate} size={17} />
-        Şablon ekle
+        {t("Şablon ekle")}
         <Icon icon={ChevronDown} size={16} className={open ? "flip" : undefined} />
       </button>
       {open && (
         <div ref={panel} id={PANEL_ID} className="snippet-panel" onKeyDown={onPanelKeyDown} onBlur={onBlur}>
           <section aria-labelledby={`${PANEL_ID}-benim`}>
             <p id={`${PANEL_ID}-benim`} className="snippet-head">
-              Benim şablonlarım
+              {t("Benim şablonlarım")}
             </p>
             {loadError ? (
-              <p className="snippet-note error-text">Şablonların okunamadı: {loadError}</p>
+              <p className="snippet-note error-text">{t("Şablonların okunamadı: {hata}", { hata: loadError })}</p>
             ) : items === null ? (
-              <p className="snippet-note muted">Yükleniyor…</p>
+              <p className="snippet-note muted">{t("Yükleniyor…")}</p>
             ) : items.length === 0 ? (
               <p className="snippet-note muted">
-                Sık kullandığın bir metni düzenleyicide seç ve aşağıdan kaydet; burada tek tıkla eklenir.
+                {t("Sık kullandığın bir metni düzenleyicide seç ve aşağıdan kaydet; burada tek tıkla eklenir.")}
               </p>
             ) : (
               <ul>
@@ -219,8 +220,8 @@ export default function SnippetMenu({ getSource, onInsert }: Props) {
                     <button
                       type="button"
                       className="icon-button"
-                      aria-label={`${s.name}: yeniden adlandır`}
-                      title="Yeniden adlandır"
+                      aria-label={t("{ad}: yeniden adlandır", { ad: s.name })}
+                      title={t("Yeniden adlandır")}
                       onClick={() => openDialog({ kind: "rename", item: s })}
                     >
                       <Icon icon={Pencil} size={16} />
@@ -228,8 +229,8 @@ export default function SnippetMenu({ getSource, onInsert }: Props) {
                     <button
                       type="button"
                       className="icon-button"
-                      aria-label={`${s.name}: üzerine yaz`}
-                      title="Üzerine yaz: içeriği seçili metinle (seçim yoksa notun tamamıyla) değiştir"
+                      aria-label={t("{ad}: üzerine yaz", { ad: s.name })}
+                      title={t("Üzerine yaz: içeriği seçili metinle (seçim yoksa notun tamamıyla) değiştir")}
                       onClick={() => openDialog({ kind: "overwrite", item: s, source: getSource() })}
                     >
                       <Icon icon={Replace} size={16} />
@@ -237,8 +238,8 @@ export default function SnippetMenu({ getSource, onInsert }: Props) {
                     <button
                       type="button"
                       className="icon-button"
-                      aria-label={`${s.name}: sil`}
-                      title="Sil"
+                      aria-label={t("{ad}: sil", { ad: s.name })}
+                      title={t("Sil")}
                       onClick={() => openDialog({ kind: "delete", item: s })}
                     >
                       <Icon icon={Trash2} size={16} />
@@ -260,7 +261,7 @@ export default function SnippetMenu({ getSource, onInsert }: Props) {
           {SNIPPET_GROUPS.map((group, gi) => (
             <section key={group} aria-labelledby={`${PANEL_ID}-${gi}`}>
               <p id={`${PANEL_ID}-${gi}`} className="snippet-head">
-                {group}
+                {t(group)}
               </p>
               <ul>
                 {SNIPPETS.filter((p) => p.group === group).map((p) => (
@@ -280,8 +281,8 @@ export default function SnippetMenu({ getSource, onInsert }: Props) {
                     >
                       <Icon icon={p.icon} size={17} />
                       <span className="snippet-text">
-                        <span className="snippet-name">{p.label}</span>
-                        <span className="snippet-hint">{p.hint}</span>
+                        <span className="snippet-name">{t(p.label)}</span>
+                        <span className="snippet-hint">{t(p.hint)}</span>
                       </span>
                     </button>
                   </li>
@@ -294,19 +295,19 @@ export default function SnippetMenu({ getSource, onInsert }: Props) {
 
       {dialog?.kind === "save" && (
         <NameDialog
-          title="Şablon olarak kaydet"
+          title={t("Şablon olarak kaydet")}
           initial={suggestName(dialog.source.text)}
-          submitLabel="Kaydet"
+          submitLabel={t("Kaydet")}
           onClose={() => setDialog(null)}
           onSubmit={async (name) => {
             const saved = await api.addSnippet(name, dialog.source.text);
-            await done(`"${saved.name}" şablonu kaydedildi: Şablon ekle → Benim şablonlarım.`);
+            await done(t("\"{ad}\" şablonu kaydedildi: Şablon ekle → Benim şablonlarım.", { ad: saved.name }));
           }}
         >
           <SourcePreview source={dialog.source} />
           {folder && (
             <p className="snippet-folder small muted">
-              Şablonlar bu bilgisayarda .md dosyası olarak saklanır; klasöre elle de dosya atabilirsin:{" "}
+              {t("Şablonlar bu bilgisayarda .md dosyası olarak saklanır; klasöre elle de dosya atabilirsin:")}{" "}
               <span className="mono break">{folder}</span>
             </p>
           )}
@@ -314,47 +315,48 @@ export default function SnippetMenu({ getSource, onInsert }: Props) {
       )}
       {dialog?.kind === "rename" && (
         <NameDialog
-          title="Şablonu yeniden adlandır"
+          title={t("Şablonu yeniden adlandır")}
           initial={dialog.item.name}
-          submitLabel="Yeniden adlandır"
+          submitLabel={t("Yeniden adlandır")}
           onClose={() => setDialog(null)}
           onSubmit={async (name) => {
             const saved = await api.updateSnippet(dialog.item.name, { new_name: name });
-            await done(`Şablonun yeni adı: "${saved.name}".`);
+            await done(t("Şablonun yeni adı: \"{ad}\".", { ad: saved.name }));
           }}
         />
       )}
       {dialog?.kind === "overwrite" && (
         <ConfirmDialog
-          title="Şablonun üzerine yaz"
-          confirmLabel="Üzerine yaz"
+          title={t("Şablonun üzerine yaz")}
+          confirmLabel={t("Üzerine yaz")}
           onClose={() => setDialog(null)}
           onConfirm={async () => {
             await api.updateSnippet(dialog.item.name, { body: dialog.source.text });
-            await done(`"${dialog.item.name}" şablonunun içeriği güncellendi.`);
+            await done(t("\"{ad}\" şablonunun içeriği güncellendi.", { ad: dialog.item.name }));
           }}
         >
           <p>
-            <strong className="break">{dialog.item.name}</strong> şablonunun içeriği{" "}
-            {dialog.source.selection ? "seçili metinle" : "notun tamamıyla"} değiştirilecek. Eski içerik geri
-            alınamaz.
+            <strong className="break">{dialog.item.name}</strong>{" "}
+            {t("şablonunun içeriği {kapsam} değiştirilecek. Eski içerik geri alınamaz.", {
+              kapsam: dialog.source.selection ? t("seçili metinle") : t("notun tamamıyla"),
+            })}
           </p>
           <SourcePreview source={dialog.source} />
         </ConfirmDialog>
       )}
       {dialog?.kind === "delete" && (
         <ConfirmDialog
-          title="Şablonu sil"
-          confirmLabel="Sil"
+          title={t("Şablonu sil")}
+          confirmLabel={t("Sil")}
           onClose={() => setDialog(null)}
           onConfirm={async () => {
             await api.removeSnippet(dialog.item.name);
-            await done(`"${dialog.item.name}" şablonu silindi.`);
+            await done(t("\"{ad}\" şablonu silindi.", { ad: dialog.item.name }));
           }}
         >
           <p>
-            <strong className="break">{dialog.item.name}</strong> şablonu silinsin mi? Dosyası şablon
-            klasöründen kaldırılır; geri alınamaz.
+            <strong className="break">{dialog.item.name}</strong>{" "}
+            {t("şablonu silinsin mi? Dosyası şablon klasöründen kaldırılır; geri alınamaz.")}
           </p>
         </ConfirmDialog>
       )}
@@ -369,7 +371,10 @@ function SourcePreview({ source }: { source: SnippetSource }) {
   return (
     <figure className="snippet-source">
       <figcaption className="small muted">
-        {source.selection ? "Seçili metin" : "Notun tamamı"} · {lines.length} satır
+        {t("{kaynak} · {n} satır", {
+          kaynak: source.selection ? t("Seçili metin") : t("Notun tamamı"),
+          n: lines.length,
+        })}
       </figcaption>
       <pre>{lines.length > 8 ? `${shown}\n…` : shown}</pre>
     </figure>
@@ -416,7 +421,7 @@ function NameDialog({
       >
         {children}
         <label className="field">
-          Şablon adı
+          {t("Şablon adı")}
           <input
             ref={input}
             className="input"
@@ -435,7 +440,7 @@ function NameDialog({
         )}
         <div className="modal-actions">
           <button type="button" onClick={onClose}>
-            Vazgeç
+            {t("Vazgeç")}
           </button>
           <button type="submit" className="primary" disabled={busy || !value.trim()}>
             {submitLabel}
@@ -472,7 +477,7 @@ function ConfirmDialog({
         )}
         <div className="modal-actions">
           <button type="button" data-autofocus onClick={onClose}>
-            Vazgeç
+            {t("Vazgeç")}
           </button>
           <button
             type="button"

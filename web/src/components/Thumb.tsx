@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import { thumbnail, type PdfRef } from "../pdf";
 
@@ -43,7 +44,7 @@ export default function Thumb({ file, page, rotate, width = 150 }: Props) {
       {src ? (
         <img src={src} alt="" draggable={false} style={{ transform: `rotate(${rotate}deg)` }} />
       ) : (
-        <span className="thumb-placeholder">{failed ? "Çizilemedi" : ""}</span>
+        <span className="thumb-placeholder">{failed ? t("Çizilemedi") : ""}</span>
       )}
     </div>
   );

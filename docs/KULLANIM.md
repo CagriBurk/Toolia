@@ -128,17 +128,39 @@ Komutlar `python -m toolia` biçimindedir, çünkü Windows'un Akıllı Uygulama
 
 ### Linux
 
-Masaüstü paketi yalnızca Windows içindir; Linux'ta uygulama kaynak koddan tarayıcıda çalışır.
+**Hazır paket (önerilen):** [Releases](https://github.com/CagriBurk/Toolia/releases) sayfasından
+`Toolia-<sürüm>-linux-x86_64.tar.gz` dosyasını indir, ayıkla ve kurulum betiğini çalıştır:
 
+```sh
+tar -xzf Toolia-<sürüm>-linux-x86_64.tar.gz
+cd Toolia-<sürüm>-linux-x86_64
+./kur.sh
 ```
-sudo apt install tesseract-ocr tesseract-ocr-tur ghostscript libreoffice-writer libreoffice-calc libreoffice-impress chromium
+
+- Uygulama yönetici izni istemeden `~/.local/opt/toolia` altına kurulur; uygulama menüsüne
+  "Toolia" simgesi ve `~/.local/bin/toolia` komutu eklenir. Belgeler ve ayarlar
+  `~/.local/share/Toolia` klasöründe ayrı saklanır.
+- Kurulum sonunda eksik dış motorlar (LibreOffice, Tesseract + Türkçe, Ghostscript,
+  Chrome/Chromium) denetlenir ve dağıtımına göre (`apt` / `dnf` / `pacman`) tek kurulum komutu
+  sunulur.
+- Kaldırmak için: `~/.local/opt/toolia/kaldir.sh`.
+- Ubuntu'da Snap Chromium veya Snap LibreOffice kuruluysa sandbox kısıtı sorun çıkarabilir;
+  Google Chrome (`.deb`) ve `apt` ile kurulu LibreOffice önerilir.
+- Telefon modunda güvenlik duvarı açıksa portu aç: `sudo ufw allow 8790/tcp`.
+
+**Kaynak koddan:**
+
+```sh
+sudo apt install tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng ghostscript libreoffice-writer libreoffice-calc libreoffice-impress chromium
 curl -LsSf https://astral.sh/uv/install.sh | sh
 git clone https://github.com/CagriBurk/Toolia.git && cd Toolia
 uv sync && npm --prefix web install && npm --prefix web run build
-uv run python -m toolia serve
+uv run python -m toolia uygulama    # ya da: uv run python -m toolia serve
 ```
 
 ### Paketi üretmek
 
-`uv run python paket/derle.py` komutu `build/Toolia-<sürüm>.zip` paketini üretir. Tesseract ve
-Ghostscript bu bilgisayardaki kurulumdan alınır; `--motorsuz` bayrağı onları pakete koymaz.
+- Windows: `uv run python paket/derle.py` → `build/Toolia-<sürüm>.zip` (`--motorsuz` ile
+  Tesseract/Ghostscript eklenmez).
+- Linux (Linux / WSL2 üzerinde): `uv run python paket/derle.py --linux` →
+  `build/Toolia-<sürüm>-linux-x86_64.tar.gz`.

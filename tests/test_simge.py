@@ -54,3 +54,10 @@ def test_web_icons_are_png_and_match_source():
         extrema = ImageChops.difference(got, simge.render(s)).getextrema()
         assert max(hi for _, hi in extrema) <= 2, (
             f"simge-{s}.png kaynakla aynı değil: paket/simge.py'yi çalıştır")
+
+
+def test_linux_icons_written(tmp_path):
+    simge.write_linux_icons(tmp_path)
+    assert {p.name for p in tmp_path.iterdir()} == {"toolia-48.png", "toolia-256.png", "toolia.svg"}
+    with Image.open(tmp_path / "toolia-256.png") as im:
+        assert im.size == (256, 256)

@@ -98,7 +98,8 @@ def items_for(paths: list[Path], target: str, outdir: Path) -> list[OfficeItem]:
 
 def test_missing_libreoffice_stops_whole_job(tmp_path):
     src = fx.docx(tmp_path / "a.docx", ["x"])
-    with pytest.raises(office.LibreOfficeNotFoundError, match="winget"):
+    expected = "winget" if office.engines.on_windows() else "apt install"
+    with pytest.raises(office.LibreOfficeNotFoundError, match=expected):
         convert_office_format(items_for([src], ".odt", tmp_path / "o"), soffice=None,
                               target=".odt")
 

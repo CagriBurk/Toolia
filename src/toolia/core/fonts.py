@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pymupdf
 
-from toolia import paths
+from toolia import engines, paths
 from toolia.errors import TooliaError
 
 # anahtar: (görünen ad, normal dosya, kalın dosya). Görünen ad tarayıcıdaki CSS adıyla aynı;
@@ -36,6 +36,13 @@ FAMILIES: dict[str, tuple[str, str, str]] = {
     "times": ("Times New Roman", "times.ttf", "timesbd.ttf"),
     "georgia": ("Georgia", "georgia.ttf", "georgiab.ttf"),
     "consolas": ("Consolas", "consola.ttf", "consolab.ttf"),
+    "liberation-sans": ("Liberation Sans", "LiberationSans-Regular.ttf", "LiberationSans-Bold.ttf"),
+    "liberation-serif": ("Liberation Serif", "LiberationSerif-Regular.ttf",
+                         "LiberationSerif-Bold.ttf"),
+    "liberation-mono": ("Liberation Mono", "LiberationMono-Regular.ttf", "LiberationMono-Bold.ttf"),
+    "dejavu-sans": ("DejaVu Sans", "DejaVuSans.ttf", "DejaVuSans-Bold.ttf"),
+    "dejavu-serif": ("DejaVu Serif", "DejaVuSerif.ttf", "DejaVuSerif-Bold.ttf"),
+    "dejavu-mono": ("DejaVu Sans Mono", "DejaVuSansMono.ttf", "DejaVuSansMono-Bold.ttf"),
 }
 DEFAULT_FAMILY = "noto-sans"
 BUNDLED = ("noto-sans", "noto-serif", "noto-mono")
@@ -51,23 +58,53 @@ class FontNotFoundError(TooliaError):
         )
 
 
+_linux_index: dict[str, Path] | None = None
+
+
 def _search_dirs() -> list[Path]:
     dirs = [paths.fonts_dir()]
-    windir = os.environ.get("WINDIR", r"C:\Windows")
-    dirs.append(Path(windir) / "Fonts")
-    if local := os.environ.get("LOCALAPPDATA"):
-        dirs.append(Path(local) / "Microsoft" / "Windows" / "Fonts")  # kullanıcıya kurulanlar
+    if engines.on_windows():
+        windir = os.environ.get("WINDIR", r"C:\Windows")
+        dirs.append(Path(windir) / "Fonts")
+        if local := os.environ.get("LOCALAPPDATA"):
+            dirs.append(Path(local) / "Microsoft" / "Windows" / "Fonts")  # kullanıcıya kurulanlar
+        return dirs
+    dirs.extend([
+        Path.home() / ".local" / "share" / "fonts",
+        Path.home() / ".fonts",
+        Path("/usr/local/share/fonts"),
+        Path("/usr/share/fonts"),
+    ])
     return dirs
 
 
+def _scan_subdirs(roots: list[Path]) -> dict[str, Path]:
+    """Linux'ta fontlar alt klasörlerde olur (`/usr/share/fonts/truetype/...`): bir kez tara."""
+    index: dict[str, Path] = {}
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for f in root.rglob("*.ttf"):
+            key = f.name.lower()
+            index.setdefault(key, f)
+    return index
+
+
 def font_path(family: str, bold: bool = False) -> Path:
+    global _linux_index
     if family not in FAMILIES:
         raise TooliaError(f"Bilinmeyen font: {family}")
     name, regular, bold_file = FAMILIES[family]
     filename = bold_file if bold else regular
-    for d in _search_dirs():
+    dirs = _search_dirs()
+    for d in dirs:
         if (d / filename).is_file():
             return d / filename
+    if not engines.on_windows():
+        if _linux_index is None:
+            _linux_index = _scan_subdirs(dirs[1:])
+        if found := _linux_index.get(filename.lower()):
+            return found
     raise FontNotFoundError(name + (" Kalın" if bold else ""), filename)
 
 

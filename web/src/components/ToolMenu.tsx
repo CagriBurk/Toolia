@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
 import { GROUPS, TOOLS, GROUP_TONE } from "../tools";
+import { t } from "../i18n";
 import Icon from "./Icon";
 
 const PANEL_ID = "tum-araclar";
@@ -69,7 +70,7 @@ export default function ToolMenu({ section }: { section: string }) {
         ref={button}
         type="button"
         className="nav-pill nav-caret"
-        aria-label="Tüm araçlar menüsü"
+        aria-label={t("Tüm araçlar menüsü")}
         aria-expanded={open}
         aria-controls={PANEL_ID}
         onClick={() => setOpen((o) => !o)}
@@ -96,16 +97,16 @@ export default function ToolMenu({ section }: { section: string }) {
                 <div key={group}>
                   <p id={headId} className="tool-menu-head">
                     <span className={`dot ${tone}`} aria-hidden="true" />
-                    {group}
+                    {t(group)}
                   </p>
                   <ul aria-labelledby={headId}>
-                    {TOOLS.filter((t) => t.group === group).map((t) => {
-                      const current = t.route === section;
+                    {TOOLS.filter((tool) => tool.group === group).map((tool) => {
+                      const current = tool.route === section;
                       return (
-                        <li key={t.id}>
+                        <li key={tool.id}>
                           <a
                             className={`tool-menu-row${current ? " on" : ""}`}
-                            href={`#/${t.route}`}
+                            href={`#/${tool.route}`}
                             aria-current={current ? "page" : undefined}
                             onClick={() => {
                               setOpen(false);
@@ -113,10 +114,10 @@ export default function ToolMenu({ section }: { section: string }) {
                               if (current) button.current?.focus();
                             }}
                           >
-                            <span className={`tile sm ${t.tone}`}>
-                              <Icon icon={t.icon} size={16} />
+                            <span className={`tile sm ${tool.tone}`}>
+                              <Icon icon={tool.icon} size={16} />
                             </span>
-                            {t.title}
+                            {t(tool.title)}
                           </a>
                         </li>
                       );

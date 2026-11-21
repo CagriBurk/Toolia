@@ -20,14 +20,17 @@ import contextlib
 import json
 import logging
 import os
+import signal
 import socket
 import subprocess
 import sys
 import threading
 import time
 import urllib.request
+import webbrowser
 from pathlib import Path
 
+from toolia import engines
 from toolia.settings import Settings, load_settings, migrate_on_startup
 
 log = logging.getLogger("toolia.desktop")
@@ -37,10 +40,25 @@ WINDOW_PROFILE = "pencere-profili"
 
 # --- yardımcılar ------------------------------------------------------------------------------
 
+def _has_display() -> bool:
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
 def message_box(text: str, title: str = "Toolia", error: bool = True) -> None:
     """Konsolsuz çalışırken kullanıcıya görünür ileti."""
-    if os.name != "nt":
+    if not engines.on_windows():
         print(text, file=sys.stderr)
+        if not _has_display():
+            return
+        for tool, args in (
+            ("zenity", ["--error" if error else "--info", f"--title={title}", f"--text={text}"]),
+            ("kdialog", ["--error" if error else "--msgbox", text, "--title", title]),
+            ("notify-send", ["-u", "critical" if error else "normal", title, text]),
+        ):
+            if exe := engines.find_on_path(tool):
+                with contextlib.suppress(OSError, subprocess.SubprocessError):
+                    subprocess.run([str(exe), *args], timeout=30, capture_output=True)
+                return
         return
     import ctypes
 
@@ -158,25 +176,57 @@ def kill_children_on_exit() -> bool:
 # --- pencere ----------------------------------------------------------------------------------
 
 def window_command(browser: str, url: str, profile: Path) -> list[str]:
-    return [browser, f"--app={url}", f"--user-data-dir={profile}", "--no-first-run",
-            "--no-default-browser-check", "--disable-background-mode",
-            "--disable-features=msEdgeStartupBoost", "--window-size=1320,900"]
+    cmd = [browser, f"--app={url}", f"--user-data-dir={profile}", "--no-first-run",
+           "--no-default-browser-check", "--disable-background-mode", "--window-size=1320,900"]
+    if "edge" in Path(browser).name.lower():
+        cmd.append("--disable-features=msEdgeStartupBoost")
+    if not engines.on_windows():
+        # GNOME / KDE görev çubuğu pencereyi `toolia.desktop` (StartupWMClass=Toolia) ile eşlesin.
+        cmd.append("--class=Toolia")
+    return cmd
 
 
 def open_window(settings: Settings, url: str) -> subprocess.Popen | None:
-    """Uygulama penceresini açar. Edge/Chrome yoksa varsayılan tarayıcıda açar ve None döner."""
-    from toolia import engines
-
+    """Uygulama penceresini açar. Edge/Chrome/Chromium yoksa varsayılan tarayıcıda açar ve
+    None döner."""
     browser = engines.detect_browser(settings).path
     if not browser:
         # Varsayılan tarayıcı iş nesnesinin dışında açılsın (uygulama kapanınca o kapanmasın).
         from toolia.kurulum import spawn_detached
 
-        spawn_detached(["cmd", "/c", "start", "", url])
+        if engines.on_windows():
+            spawn_detached(["cmd", "/c", "start", "", url])
+        elif xdg := engines.find_on_path("xdg-open"):
+            spawn_detached([str(xdg), url])
+        else:
+            webbrowser.open(url)
         return None
-    profile = settings.data_dir / WINDOW_PROFILE
+    if snap_tmp := engines.snap_temp_base(browser):
+        # Snap tarayıcıları ~/.local altındaki gizli klasörleri okuyamaz; common altı erişilebilir.
+        profile = snap_tmp.parent / WINDOW_PROFILE
+    else:
+        profile = settings.data_dir / WINDOW_PROFILE
     profile.mkdir(parents=True, exist_ok=True)
     return subprocess.Popen(window_command(browser, url, profile))
+
+
+@contextlib.contextmanager
+def _termination_event():
+    """POSIX'te SIGTERM/SIGHUP gelince kapanışı tetikleyen olay (ana iş parçacığında)."""
+    stop = threading.Event()
+    if os.name == "nt" or threading.current_thread() is not threading.main_thread():
+        yield stop
+        return
+    sigs = [s for s in (getattr(signal, "SIGTERM", None), getattr(signal, "SIGHUP", None))
+            if s is not None]
+    prev = {s: signal.getsignal(s) for s in sigs}
+    for s in sigs:
+        signal.signal(s, lambda _signum, _frame: stop.set())
+    try:
+        yield stop
+    finally:
+        for s, handler in prev.items():
+            signal.signal(s, handler)
 
 
 # --- ana akış ---------------------------------------------------------------------------------
@@ -200,28 +250,29 @@ def run(config: Path | None = None, *, wait_window: bool = True) -> int:
     kill_children_on_exit()
     window: subprocess.Popen | None = None
     previous_port: int | None = None
-    while True:
-        if previous_port is not None:  # yeniden başlatma: ayarları dosyadan yeniden oku
-            settings = load_settings(config)
-            settings.ensure_dirs()
-        server = _start_server(settings, previous_port)
-        if server is None:
-            message_box("Toolia başlatılamadı. Ayrıntı günlük dosyasında:\n"
-                        f"{settings.logs_dir / 'toolia.log'}")
-            return 1
-        log.info("Masaüstü uygulaması açıldı: %s%s", server.url,
-                 " (telefon modu)" if settings.lan else "")
-        try:
-            if window is None:
-                window = open_window(settings, server.url)
-            reason = server.wait(window if wait_window else None)
-        finally:
-            server.stop()
-        if reason != "restart":
-            log.info("Masaüstü uygulaması kapandı")
-            return 0
-        previous_port = settings.port
-        log.info("Yeni ayarlarla yeniden başlatılıyor")
+    with _termination_event() as stop:
+        while True:
+            if previous_port is not None:  # yeniden başlatma: ayarları dosyadan yeniden oku
+                settings = load_settings(config)
+                settings.ensure_dirs()
+            server = _start_server(settings, previous_port)
+            if server is None:
+                message_box("Toolia başlatılamadı. Ayrıntı günlük dosyasında:\n"
+                            f"{settings.logs_dir / 'toolia.log'}")
+                return 1
+            log.info("Masaüstü uygulaması açıldı: %s%s", server.url,
+                     " (telefon modu)" if settings.lan else "")
+            try:
+                if window is None:
+                    window = open_window(settings, server.url)
+                reason = server.wait(window if wait_window else None, stop)
+            finally:
+                server.stop()
+            if reason != "restart":
+                log.info("Masaüstü uygulaması kapandı")
+                return 0
+            previous_port = settings.port
+            log.info("Yeni ayarlarla yeniden başlatılıyor")
 
 
 class _Server:

@@ -1,5 +1,38 @@
 # Değişiklikler
 
+## 0.14.0 — 2026-11-21
+
+Linux masaüstü kurulum paketi ve İngilizce arayüz desteği.
+
+### Linux desteği ve kurulum paketi
+- **Hazır Linux paketi (`Toolia-0.14.0-linux-x86_64.tar.gz`)**: gömülü Python 3.11
+  (`python-build-standalone`), bütün Python bağımlılıkları ve derlenmiş arayüz paketin içinde;
+  yönetici izni istemeden `./kur.sh` ile `~/.local/opt/toolia` altına kurulur (`~/.local/bin/toolia`,
+  uygulama menüsü `.desktop` girişi ve kelebek simgesi). Belgeler ve ayarlar
+  `~/.local/share/Toolia` klasöründe ayrı saklanır; `./kaldir.sh` temizce kaldırır.
+- **Dağıtıma göre tek komut motor kurulumu**: kurulum sonunda eksik dış motorlar (LibreOffice,
+  Tesseract + Türkçe dil paketi, Ghostscript, Chromium/Chrome) denetlenir ve dağıtıma göre
+  (`apt` / `dnf` / `pacman`) tek kurulum komutu sunulur.
+- **Masaüstü penceresi ve yerel bütünleşme**: `toolia uygulama` Linux'ta Chrome/Chromium/Edge
+  uygulama penceresi (`--class=Toolia`), `zenity` / `kdialog` / `notify-send` ileti kutusu,
+  `xdg-open` yedeği ve `SIGTERM`/`SIGHUP` temiz kapanışı destekler. Klasör seçme
+  (`zenity` / `kdialog`) ve dosya yöneticisinde gösterme (`dbus-send FileManager1` / `xdg-open`)
+  artık Linux masaüstünde de çalışır.
+- **Snap Chromium / LibreOffice uyumu**: Snap paketleri otomatik tespit edilir, Ayarlar'da uyarı
+  gösterilir ve geçici dosyalar/profil Snap'in okuyabildiği `~/snap/<paket>/common` altına alınır.
+- **Telefon modu iyileştirmeleri**: `docker0`, `virbr0`, `tun0`, `wg0` gibi sanal/VPN ve kapalı
+  arayüzler elenir; çoklu ağ arayüzü varsa Ayarlar'da QR kodu seçilen IP'ye göre değiştirilebilir;
+  Linux'ta `sudo ufw allow <port>/tcp` güvenlik duvarı ipucu gösterilir.
+- **Motor ve font tespiti**: Linux'ta LibreOffice sürümü `versionrc` dosyasından okunur, Office
+  font uyarıları `fc-list` ile gerçek kurulu fontlara bakar, Tesseract kurulu ama Türkçe dil
+  paketi eksikse Ayarlar'da ve CLI'da doğrudan `tesseract-ocr-tur` kurulum komutu görünür;
+  PDF editörü Linux sistem font klasörlerini (Liberation, DejaVu) de tanır.
+
+### İngilizce arayüz (TR / EN)
+- **Ayarlar → Görünüm → Dil**: Sistem / Türkçe / English seçimi (tüm ekranlar, araçlar,
+  komut paleti, motor açıklamaları, tarih biçimi ve PDF varsayılan metinleri dahil 840+ anahtar).
+- Çeviri bütünlüğü denetimi (`web/scripts/i18n-eksik.mjs` + Vitest testleri).
+
 ## 0.13.0 — 2026-11-21
 
 Güvenlik sürümü ve arayüz yenilemesi. **0.12.x kullanan herkesin güncellemesi önerilir**: özellikle

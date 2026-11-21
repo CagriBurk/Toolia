@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
+import { t } from "./i18n";
 
 /** Basit karma (#) yönlendirici: "#/duzenle/abc?x=1" → { path: ["duzenle", "abc"], query }
  *
@@ -12,7 +13,7 @@ export interface Route {
   query: URLSearchParams;
 }
 
-export const LEAVE_MESSAGE = "Kaydedilmemiş değişiklikler var. Çıkarsan kaybolacak. Çıkılsın mı?";
+export const LEAVE_MESSAGE = t("Kaydedilmemiş değişiklikler var. Çıkarsan kaybolacak. Çıkılsın mı?");
 
 function parse(hash: string): Route {
   const raw = hash.replace(/^#\/?/, "");

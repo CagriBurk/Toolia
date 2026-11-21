@@ -77,3 +77,87 @@ def test_install_hints_match_the_platform(monkeypatch):
     assert "Chromium" in engines.detect_browser(s).install_hint
     monkeypatch.setattr(engines, "on_windows", lambda: True)
     assert "winget" in engines.detect_libreoffice(s).install_hint
+
+
+def test_snap_detection_paths_and_wrapper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(engines, "on_windows", lambda: False)
+    assert engines.snap_package_name("/snap/bin/chromium") == "chromium"
+    assert engines.snap_package_name("/snap/bin/libreoffice.soffice") == "libreoffice"
+    assert engines.snap_package_name("/snap/libreoffice/300/program/soffice.bin") == "libreoffice"
+    assert engines.snap_package_name("/var/lib/snapd/snap/bin/chromium") == "chromium"
+    assert engines.snap_package_name("/usr/bin/google-chrome") is None
+
+    wrapper = tmp_path / "chromium-browser"
+    wrapper.write_text("#!/bin/sh\nexec /snap/bin/chromium \"$@\"\n", encoding="utf-8")
+    assert engines.snap_package_name(wrapper) == "chromium"
+    assert engines.is_snap_executable(wrapper) is True
+
+    normal = tmp_path / "chrome"
+    normal.write_bytes(b"\x7fELF" + b"\x00" * 64)
+    assert engines.snap_package_name(normal) is None
+
+
+def test_libreoffice_linux_version_reads_versionrc(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    prog = tmp_path / "libreoffice" / "program"
+    prog.mkdir(parents=True)
+    soffice = prog / "soffice"
+    soffice.write_text("", encoding="utf-8")
+    (prog / "versionrc").write_text(
+        "[Version]\nOOOPackageVersion=24.8.4.2\nProductKey=LibreOffice 24.8\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(engines, "on_windows", lambda: False)
+    monkeypatch.setattr(engines, "_run", lambda args: pytest.fail("versionrc varken çalışmamalı"))
+    st = engines.detect_libreoffice(Settings(engines=EnginePaths(libreoffice=str(soffice))))
+    assert st.available and st.version == "24.8.4.2"
+
+
+def test_tesseract_missing_language_linux_hint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    exe = tmp_path / "tesseract"
+    exe.write_bytes(b"")
+    outputs = {
+        "--version": "tesseract 5.3.4\n",
+        "--list-langs": "List of available languages:\neng\nosd\n",
+    }
+    monkeypatch.setattr(engines, "on_windows", lambda: False)
+    monkeypatch.setattr(engines, "_run", lambda args: outputs[args[1]])
+    st = engines.detect_tesseract(Settings(engines=EnginePaths(tesseract=str(exe))))
+    assert st.available and not st.ok
+    assert st.install_hint == "sudo apt install tesseract-ocr-tur"
+
+
+def test_office_installed_fonts_fontconfig(monkeypatch: pytest.MonkeyPatch):
+    import subprocess
+
+    from toolia.convert import office
+
+    monkeypatch.setattr(office, "_installed_cache", None)
+    monkeypatch.setattr(engines, "on_windows", lambda: False)
+    monkeypatch.setattr(engines, "find_on_path", lambda name: Path("/usr/bin/fc-list"))
+    monkeypatch.setattr(
+        office.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(
+            a[0], 0, "Noto Sans,Noto Sans Regular\nLiberation Serif\nDejaVu Sans Mono\n", ""
+        ),
+    )
+    fams = office.installed_fonts()
+    assert fams is not None
+    assert {"notosans", "liberationserif", "dejavusansmono"} <= fams
+    monkeypatch.setattr(office, "_installed_cache", None)
+
+
+def test_linux_font_search_finds_subdir_ttf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from toolia.core import fonts
+
+    sub = tmp_path / "truetype" / "liberation"
+    sub.mkdir(parents=True)
+    ttf = sub / "LiberationSans-Regular.ttf"
+    ttf.write_bytes(b"fake")
+    monkeypatch.setattr(engines, "on_windows", lambda: False)
+    monkeypatch.setattr(fonts, "_linux_index", None)
+    monkeypatch.setattr(fonts, "_search_dirs", lambda: [tmp_path / "empty", tmp_path])
+    assert fonts.font_path("liberation-sans") == ttf
+    monkeypatch.setattr(fonts, "_linux_index", None)

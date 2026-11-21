@@ -9,6 +9,7 @@ import PageHeader from "../components/PageHeader";
 import PasswordDialog from "../components/PasswordDialog";
 import { FONT_CSS, loadBundledFonts } from "../fonts";
 import { useFiles, useJob, useUnlockQueue } from "../hooks";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import { idsFrom, type Route } from "../router";
 import { ACCEPT, toolForRoute } from "../tools";
@@ -19,7 +20,7 @@ export default function Watermark({ route }: { route: Route }) {
   const initial = useFiles(idsFrom(route));
   const [file, setFile] = useState<FileMeta | null>(null);
   const [mode, setMode] = useState<"text" | "image">("text");
-  const [text, setText] = useState("TASLAK");
+  const [text, setText] = useState(t("TASLAK"));
   const [image, setImage] = useState<FileMeta | null>(null);
   const [font, setFont] = useState("noto-sans");
   const [bold, setBold] = useState(true);
@@ -77,11 +78,11 @@ export default function Watermark({ route }: { route: Route }) {
       <PageHeader title="Filigran" />
       <div className="tool-layout">
         <div className="tool-main">
-          <FilesCard title="Dosya">
+          <FilesCard title={t("Dosya")}>
             {file ? (
               <FileRow file={file} onRemove={() => (setFile(null), job.reset())} />
             ) : (
-              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title="Filigran eklenecek PDF'i bırak" onAdd={([f]) => setFile(f)} />
+              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title={t("Filigran eklenecek PDF'i bırak")} onAdd={([f]) => setFile(f)} />
             )}
           </FilesCard>
           {file && (
@@ -112,30 +113,30 @@ export default function Watermark({ route }: { route: Route }) {
                   ) : null
                 }
               </PagePreview>
-              <p className="muted small">İlk sayfanın yaklaşık önizlemesi.</p>
+              <p className="muted small">{t("İlk sayfanın yaklaşık önizlemesi.")}</p>
             </div>
           )}
         </div>
         <aside className="options" aria-labelledby="filigran-secenekler">
-          <h2 id="filigran-secenekler">Seçenekler</h2>
-          <div className="segmented seg-track" role="group" aria-label="Filigran türü">
+          <h2 id="filigran-secenekler">{t("Seçenekler")}</h2>
+          <div className="segmented seg-track" role="group" aria-label={t("Filigran türü")}>
             <button type="button" className={mode === "text" ? "on" : undefined} onClick={() => setMode("text")}>
               <Icon icon={Type} size={16} />
-              Yazı
+              {t("Yazı")}
             </button>
             <button type="button" className={mode === "image" ? "on" : undefined} onClick={() => setMode("image")}>
               <Icon icon={ImageIcon} size={16} />
-              Resim
+              {t("Resim")}
             </button>
           </div>
           {mode === "text" ? (
             <>
               <label className="field">
-                Yazı
+                {t("Yazı")}
                 <input className="input" value={text} maxLength={200} onChange={(e) => setText(e.target.value)} />
               </label>
               <label className="field">
-                Font
+                {t("Font")}
                 <select className="input" value={font} onChange={(e) => setFont(e.target.value)}>
                   {fonts.map((f) => (
                     <option key={f.key} value={f.key}>
@@ -146,16 +147,16 @@ export default function Watermark({ route }: { route: Route }) {
               </label>
               <div className="field-row">
                 <label className="field">
-                  Boyut
+                  {t("Boyut")}
                   <input className="input narrow" type="number" min={6} max={400} value={size} onChange={(e) => setSize(Number(e.target.value))} />
                 </label>
                 <label className="field">
-                  Renk
+                  {t("Renk")}
                   <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
                 </label>
                 <label className="check">
                   <input type="checkbox" checked={bold} onChange={(e) => setBold(e.target.checked)} />
-                  Kalın
+                  {t("Kalın")}
                 </label>
               </div>
             </>
@@ -164,36 +165,36 @@ export default function Watermark({ route }: { route: Route }) {
               {image ? (
                 <FileRow file={image} onRemove={() => setImage(null)} />
               ) : (
-                <FilePicker accept={ACCEPT.images} kind="image" multiple={false} compact title="Filigran resmini bırak (PNG önerilir)" onAdd={([f]) => setImage(f)} />
+                <FilePicker accept={ACCEPT.images} kind="image" multiple={false} compact title={t("Filigran resmini bırak (PNG önerilir)")} onAdd={([f]) => setImage(f)} />
               )}
               <label className="field">
-                Genişlik: sayfanın %{Math.round(scale * 100)}
+                {t("Genişlik: sayfanın %{p}", { p: Math.round(scale * 100) })}
                 <input type="range" min={0.1} max={1} step={0.05} value={scale} onChange={(e) => setScale(Number(e.target.value))} />
               </label>
             </>
           )}
           <label className="field">
-            Opaklık %{Math.round(opacity * 100)}
+            {t("Opaklık %{p}", { p: Math.round(opacity * 100) })}
             <input type="range" min={0.05} max={1} step={0.05} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} />
           </label>
           <label className="field">
-            Açı (derece)
+            {t("Açı (derece)")}
             <input className="input narrow" type="number" min={-180} max={180} value={angle} onChange={(e) => setAngle(Number(e.target.value))} />
           </label>
           <fieldset className="field plain">
-            <legend>Konum</legend>
+            <legend>{t("Konum")}</legend>
             <label className="check">
               <input type="radio" name="layer" checked={layer === "front"} onChange={() => setLayer("front")} />
-              İçeriğin önünde
+              {t("İçeriğin önünde")}
             </label>
             <label className="check">
               <input type="radio" name="layer" checked={layer === "back"} onChange={() => setLayer("back")} />
-              Arkasında (taranmış sayfalarda görünmeyebilir)
+              {t("Arkasında (taranmış sayfalarda görünmeyebilir)")}
             </label>
           </fieldset>
           <label className="field">
-            Sayfalar
-            <input className="input" placeholder="hepsi (ör. 1-3, 5)" value={pages} onChange={(e) => setPages(e.target.value)} />
+            {t("Sayfalar")}
+            <input className="input" placeholder={t("hepsi (ör. 1-3, 5)")} value={pages} onChange={(e) => setPages(e.target.value)} />
           </label>
           <button
             type="button"
@@ -202,7 +203,7 @@ export default function Watermark({ route }: { route: Route }) {
             onClick={start}
           >
             <Icon icon={toolForRoute("filigran")!.icon} />
-            Filigran ekle
+            {t("Filigran ekle")}
           </button>
           <JobPanel job={job.job} error={job.error ?? initial.error} />
         </aside>

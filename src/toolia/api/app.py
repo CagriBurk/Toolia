@@ -239,14 +239,26 @@ def create_app(settings: Settings, *, start_background: bool = True) -> FastAPI:
         return update.check(__version__)
 
     @app.get("/api/lan")
-    def lan_info(request: Request) -> dict:
+    def lan_info(request: Request, ip: str | None = None) -> dict:
         if not settings.lan:
             return {"enabled": False}
         if not _is_local(request):
             raise TooliaError("QR kod yalnızca sunucunun çalıştığı bilgisayarda gösterilir.")
-        urls = [f"http://{ip}:{settings.port}/?t={sessions.pair_token}" for ip in lan.lan_ips()]
-        return {"enabled": True, "urls": urls, "qr_svg": lan.qr_svg(urls[0]) if urls else None,
-                "devices": [{"ip": d.ip, "paired_at": d.paired_at} for d in sessions.devices()]}
+        ips = lan.lan_ips()
+        token = sessions.pair_token
+        urls = [f"http://{addr}:{settings.port}/?t={token}" for addr in ips]
+        selected_ip = ip if ip and ip in ips else (ips[0] if ips else None)
+        selected_url = (f"http://{selected_ip}:{settings.port}/?t={token}"
+                        if selected_ip else None)
+        return {
+            "enabled": True,
+            "urls": urls,
+            "ips": ips,
+            "selected_ip": selected_ip,
+            "port": settings.port,
+            "qr_svg": lan.qr_svg(selected_url) if selected_url else None,
+            "devices": [{"ip": d.ip, "paired_at": d.paired_at} for d in sessions.devices()],
+        }
 
     @app.delete("/api/lan/devices")
     def revoke_devices(request: Request) -> dict:

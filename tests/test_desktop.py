@@ -627,3 +627,126 @@ def test_make_icon_names_icon_with_version(tmp_path):
     derle.make_icon(tmp_path / "simgeler", "9.9.9")
     assert [p.name for p in (tmp_path / "simgeler").iterdir()] == ["toolia-9.9.9.ico"]
     assert kurulum.icon_path(tmp_path) == tmp_path / "simgeler" / "toolia-9.9.9.ico"
+
+
+# --- Linux masaüstü, yerel bütünleşme ve kurulum ----------------------------------------------
+
+
+def test_linux_window_command_sets_wm_class(tmp_path, monkeypatch):
+    monkeypatch.setattr(engines, "on_windows", lambda: False)
+    cmd = desktop.window_command("/usr/bin/google-chrome", "http://127.0.0.1:8790", tmp_path / "p")
+    assert "--class=Toolia" in cmd
+    assert "--disable-features=msEdgeStartupBoost" not in cmd
+    edge_cmd = desktop.window_command("/usr/bin/microsoft-edge", "http://127.0.0.1:8790",
+                                      tmp_path / "p")
+    assert "--disable-features=msEdgeStartupBoost" in edge_cmd and "--class=Toolia" in edge_cmd
+
+
+def test_linux_open_window_falls_back_to_xdg_open(tmp_path, monkeypatch):
+    from toolia.settings import Settings
+
+    monkeypatch.setattr(engines, "on_windows", lambda: False)
+    monkeypatch.setattr(desktop.engines, "detect_browser",
+                        lambda s: engines.EngineStatus("browser", "Chrome", False, ""))
+    monkeypatch.setattr(desktop.engines, "find_on_path",
+                        lambda n: Path("/usr/bin/xdg-open") if n == "xdg-open" else None)
+    spawned = []
+    monkeypatch.setattr(kurulum, "spawn_detached", lambda args, **kw: spawned.append(args))
+    assert desktop.open_window(Settings(data_dir=tmp_path), "http://127.0.0.1:8790") is None
+    assert spawned == [[str(Path("/usr/bin/xdg-open")), "http://127.0.0.1:8790"]]
+
+
+def test_linux_message_box_uses_zenity(monkeypatch):
+    calls = []
+    monkeypatch.setattr(engines, "on_windows", lambda: False)
+    monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.setattr(desktop.engines, "find_on_path",
+                        lambda n: Path("/usr/bin/zenity") if n == "zenity" else None)
+    monkeypatch.setattr(desktop.subprocess, "run", lambda args, **kw: calls.append(args))
+    desktop.message_box("Hata oluştu", title="Toolia", error=True)
+    assert calls and "--error" in calls[0] and "--text=Hata oluştu" in calls[0]
+
+
+def test_linux_native_pick_folder_and_reveal(tmp_path, monkeypatch):
+    from toolia import native
+
+    monkeypatch.setattr(engines, "on_windows", lambda: False)
+    monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.setattr(native.engines, "find_on_path",
+                        lambda n: Path(f"/usr/bin/{n}") if n in ("zenity", "xdg-open") else None)
+    monkeypatch.setattr(native.subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(
+        cmd, 0, b"/home/u/Notlar\n", b""))
+    assert native.is_available() is True
+    assert native.pick_folder(str(tmp_path), "Seç") == "/home/u/Notlar"
+
+    monkeypatch.setattr(native.subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(
+        cmd, 1, b"", b""))
+    assert native.pick_folder(str(tmp_path), "Seç") is None
+
+    opened = []
+    monkeypatch.setattr(native.subprocess, "Popen", lambda cmd, **kw: opened.append(cmd))
+    target = tmp_path / "cikti.pdf"
+    target.write_bytes(b"x")
+    native.reveal(target)
+    assert opened == [[str(Path("/usr/bin/xdg-open")), str(tmp_path)]]
+
+
+def test_package_root_supports_linux_bin_layout(tmp_path, monkeypatch):
+    py = tmp_path / "python" / "bin" / "python3"
+    py.parent.mkdir(parents=True)
+    py.write_bytes(b"")
+    (tmp_path / kurulum.MARKER).write_text('{"version": "0.14.0"}', encoding="utf-8")
+    monkeypatch.setattr(kurulum.sys, "executable", str(py))
+    assert kurulum.package_root() == tmp_path
+
+
+def test_linux_shortcuts_and_distro_commands(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    target = home / ".local" / "opt" / "toolia"
+    (target / "simgeler").mkdir(parents=True)
+    (target / "simgeler" / "toolia-256.png").write_bytes(b"PNG")
+    monkeypatch.setattr(engines, "find_on_path", lambda n: None)
+
+    kurulum.create_linux_shortcuts(target, home=home)
+    links = kurulum.linux_shortcut_paths(home)
+    assert links["bin"].is_file() and "-I -m toolia" in links["bin"].read_text(encoding="utf-8")
+    desktop_text = links["desktop_entry"].read_text(encoding="utf-8")
+    assert "StartupWMClass=Toolia" in desktop_text and "Icon=toolia" in desktop_text
+    assert links["icon"].read_bytes() == b"PNG"
+
+    kurulum.remove_linux_shortcuts(home=home)
+    assert not links["bin"].exists() and not links["desktop_entry"].exists()
+    assert not links["icon"].exists()
+
+    assert kurulum.detect_linux_pkg_manager('ID=ubuntu\nID_LIKE=debian\n') == "apt"
+    assert kurulum.detect_linux_pkg_manager('ID=fedora\n') == "dnf"
+    assert kurulum.detect_linux_pkg_manager('ID=arch\n') == "pacman"
+
+    missing = [
+        engines.EngineStatus("libreoffice", "LibreOffice", False, ""),
+        engines.EngineStatus(
+            "tesseract", "Tesseract", True, "", problems=["Eksik dil paketi: tur"]
+        ),
+        engines.EngineStatus("ghostscript", "Ghostscript", True, ""),
+    ]
+    apt_cmd = kurulum.linux_missing_engine_command(missing, "apt")
+    assert apt_cmd is not None and "libreoffice-writer" in apt_cmd
+    assert "tesseract-ocr-tur" in apt_cmd and "ghostscript" not in apt_cmd
+    dnf_cmd = kurulum.linux_missing_engine_command(missing, "dnf")
+    assert dnf_cmd is not None and "tesseract-langpack-tur" in dnf_cmd
+
+
+def test_package_writes_linux_launchers(tmp_path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("derle", ROOT / "paket" / "derle.py")
+    derle = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(derle)
+    derle.write_linux_launchers(tmp_path)
+    assert {p.name for p in tmp_path.iterdir()} == {"kur.sh", "kaldir.sh"}
+    for name in ("kur.sh", "kaldir.sh"):
+        raw = (tmp_path / name).read_bytes()
+        assert b"\r\n" not in raw
+        text = raw.decode("utf-8")
+        assert text.startswith("#!/bin/sh\n") and "-I -m toolia.kurulum" in text
+        assert '"$@"' not in text

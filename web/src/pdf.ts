@@ -5,12 +5,13 @@ import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import { api } from "./api";
+import { t } from "./i18n";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export class PasswordNeededError extends Error {
   constructor(public wrong: boolean) {
-    super(wrong ? "Şifre yanlış" : "Bu PDF şifreli");
+    super(wrong ? t("Şifre yanlış") : t("Bu PDF şifreli"));
   }
 }
 

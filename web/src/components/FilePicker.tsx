@@ -2,6 +2,7 @@ import { GripVertical, LoaderCircle, Upload, X } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { formatSize, type FileMeta } from "../api";
 import { useUpload } from "../hooks";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import DropZone from "./DropZone";
 import Icon from "./Icon";
@@ -41,7 +42,7 @@ export default function FilePicker({ accept, kind, multiple = true, title, onAdd
     const kinds = Array.isArray(kind) ? kind : [kind];
     const good = metas.filter((m) => kinds.includes(m.kind));
     const bad = metas.filter((m) => !kinds.includes(m.kind));
-    if (bad.length) setError(`Bu araç için uygun olmayan dosyalar atlandı: ${bad.map((b) => b.name).join(", ")}`);
+    if (bad.length) setError(t("Bu araç için uygun olmayan dosyalar atlandı: {names}", { names: bad.map((b) => b.name).join(", ") }));
     next(good, []);
   };
 
@@ -58,10 +59,10 @@ export default function FilePicker({ accept, kind, multiple = true, title, onAdd
             <span className="drop-icon">
               <Icon icon={uploading ? LoaderCircle : Upload} className={uploading ? "spin" : undefined} />
             </span>
-            {uploading ? `Yükleniyor… %${Math.round((progress ?? 0) * 100)}` : title}
+            {uploading ? t("Yükleniyor… %{p}", { p: Math.round((progress ?? 0) * 100) }) : title}
           </>
         }
-        hint={compact ? undefined : "ya da tıklayıp seç"}
+        hint={compact ? undefined : t("ya da tıklayıp seç")}
       />
       {error && <p className="error-text">{error}</p>}
       {queue[0] && (
@@ -99,20 +100,22 @@ export function fileTypeTone(name: string, kind: FileMeta["kind"]): string {
 }
 
 /** Özet kartı için: "2 PDF · 26.8 MB" (boşsa "—"). */
-export function filesSummary(files: FileMeta[], noun = "dosya"): string {
+export function filesSummary(files: FileMeta[], noun: "dosya" | "resim" | "PDF" = "dosya"): string {
   if (!files.length) return "—";
-  return `${files.length} ${noun} · ${formatSize(files.reduce((n, f) => n + f.size, 0))}`;
+  const n = files.length;
+  const count = noun === "resim" ? t("{n} resim", { n }) : noun === "PDF" ? t("{n} PDF", { n }) : t("{n} dosya", { n });
+  return `${count} · ${formatSize(files.reduce((sum, f) => sum + f.size, 0))}`;
 }
 
 /** Tek dosyalı araçların özeti: "12 sayfa · 2.3 MB" (yoksa "—"). */
 export function fileSummary(file: FileMeta | null): string {
   if (!file) return "—";
-  return file.page_count ? `${file.page_count} sayfa · ${formatSize(file.size)}` : formatSize(file.size);
+  return file.page_count ? t("{n} sayfa · {s}", { n: file.page_count, s: formatSize(file.size) }) : formatSize(file.size);
 }
 
 /** Araç ekranının dosya kartı: başlık, sayı rozeti, isteğe bağlı açıklama. */
 export function FilesCard({
-  title = "Dosyalar",
+  title = t("Dosyalar"),
   count = 0,
   hint,
   children,
@@ -152,15 +155,15 @@ export function FileRow({ file, onRemove, draggable }: { file: FileMeta; onRemov
         </span>
         <span className="file-meta">
           {formatSize(file.size)}
-          {file.page_count ? ` · ${file.page_count} sayfa` : ""}
-          {file.encrypted ? " · şifreli" : ""}
+          {file.page_count ? ` · ${t("{n} sayfa", { n: file.page_count })}` : ""}
+          {file.encrypted ? ` · ${t("şifreli")}` : ""}
         </span>
       </span>
       {onRemove && (
         <button
           type="button"
           className="icon-button"
-          aria-label={`${file.name} listeden çıkar`}
+          aria-label={t("{name} listeden çıkar", { name: file.name })}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onRemove}
         >

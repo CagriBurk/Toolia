@@ -1,6 +1,7 @@
 import { Lock } from "lucide-react";
 import { useState } from "react";
 import { api, errorMessage, type FileMeta } from "../api";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import Icon from "./Icon";
 import Modal from "./Modal";
@@ -30,7 +31,7 @@ export default function PasswordDialog({ file, onDone }: Props) {
   };
 
   return (
-    <Modal title="Şifreli PDF" onClose={() => onDone(false)}>
+    <Modal title={t("Şifreli PDF")} onClose={() => onDone(false)}>
       <form
         className="password-form"
         onSubmit={(e) => {
@@ -43,8 +44,8 @@ export default function PasswordDialog({ file, onDone }: Props) {
             <Icon icon={Lock} />
           </span>
           <p>
-            <strong className="break">{file.name}</strong> şifreli. Açmak için şifresini gir. Şifre yalnızca bu
-            sekmede tutulur, kaydedilmez.
+            <strong className="break">{file.name}</strong>{" "}
+            {t("şifreli. Açmak için şifresini gir. Şifre yalnızca bu sekmede tutulur, kaydedilmez.")}
           </p>
         </div>
         <input
@@ -52,16 +53,16 @@ export default function PasswordDialog({ file, onDone }: Props) {
           data-autofocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          aria-label="Şifre"
+          aria-label={t("Şifre")}
           className="input"
         />
         {error && <p className="error-text">{error}</p>}
         <div className="modal-actions">
           <button type="button" onClick={() => onDone(false)}>
-            Vazgeç
+            {t("Vazgeç")}
           </button>
           <button type="submit" className="primary" disabled={busy || !value}>
-            Aç
+            {t("Aç")}
           </button>
         </div>
       </form>

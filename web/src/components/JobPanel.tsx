@@ -13,6 +13,7 @@ import {
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { api, formatSize, type Job } from "../api";
 import { navigate, useRoute } from "../router";
+import { t } from "../i18n";
 import { toolForRoute } from "../tools";
 import { fileType, fileTypeTone } from "./FilePicker";
 import Icon from "./Icon";
@@ -51,8 +52,8 @@ function useElapsed(jobId: string | undefined, running: boolean): number {
   }, [jobId, since.id]);
   useEffect(() => {
     if (!running) return;
-    const t = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(t);
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
   }, [running]);
   return Math.max(0, Math.round((now - since.at) / 1000));
 }
@@ -86,18 +87,18 @@ export default function JobPanel({ job, error, zipName, summary }: Props) {
           )}
         </span>
         <div className="job-panel-text">
-          <strong>{STATUS[job.status]}</strong>
+          <strong>{t(STATUS[job.status])}</strong>
           {running && <span className="muted">{job.message}</span>}
           {job.status === "bitti" && summary && <span className="muted">{summary}</span>}
         </div>
         {running && elapsed >= 5 && (
-          <span className="muted small job-elapsed" aria-label={`Geçen süre ${formatElapsed(elapsed)}`}>
+          <span className="muted small job-elapsed" aria-label={t("Geçen süre {time}", { time: formatElapsed(elapsed) })}>
             {formatElapsed(elapsed)}
           </span>
         )}
         {running && (
           <button type="button" onClick={() => void api.cancelJob(job.id)}>
-            İptal
+            {t("İptal")}
           </button>
         )}
       </div>
@@ -114,14 +115,14 @@ export default function JobPanel({ job, error, zipName, summary }: Props) {
           onClick={() => navigate("guvenlik", { dosya: job.request.file as string, islem: "onar" })}
         >
           <Icon icon={Wrench} size={16} />
-          Onarmayı dene
+          {t("Onarmayı dene")}
         </button>
       )}
       {job.warnings.length > 0 && (
         <details className="warnings" open={job.warnings.length <= 5}>
           <summary>
             <Icon icon={ChevronRight} size={16} className="warnings-caret" />
-            {job.warnings.length} ayrıntı / uyarı
+            {t("{n} ayrıntı / uyarı", { n: job.warnings.length })}
           </summary>
           <ul>
             {job.warnings.map((w) => (
@@ -144,23 +145,23 @@ export default function JobPanel({ job, error, zipName, summary }: Props) {
                   </span>
                   <span className="file-meta">
                     {formatSize(f.size)}
-                    {f.page_count ? ` · ${f.page_count} sayfa` : ""}
+                    {f.page_count ? ` · ${t("{n} sayfa", { n: f.page_count })}` : ""}
                   </span>
                 </span>
                 <span className="output-actions">
                   {f.kind === "pdf" && (
                     <>
                       <button type="button" className="link-button" onClick={() => navigate(`duzenle/${f.id}`)}>
-                        Düzenle
+                        {t("Düzenle")}
                       </button>
                       <button type="button" className="link-button" onClick={() => navigate(`editor/${f.id}`)}>
-                        İçerik ekle
+                        {t("İçerik ekle")}
                       </button>
                     </>
                   )}
                   <a className="button primary output-download" href={api.downloadUrl(f.id)}>
                     <Icon icon={Download} size={17} />
-                    İndir
+                    {t("İndir")}
                   </a>
                 </span>
               </li>
@@ -169,7 +170,7 @@ export default function JobPanel({ job, error, zipName, summary }: Props) {
           {job.files.length > 1 && (
             <a className="button block" href={api.zipUrl(job.files.map((f) => f.id), zipName)}>
               <Icon icon={FileArchive} />
-              Hepsini ZIP olarak indir
+              {t("Hepsini ZIP olarak indir")}
             </a>
           )}
         </>
@@ -202,7 +203,7 @@ export function ActionCard({
   const tool = toolForRoute(useRoute().path[0]);
   return (
     <section className="options" aria-labelledby={id}>
-      <h2 id={id}>Özet</h2>
+      <h2 id={id}>{t("Özet")}</h2>
       <dl className="summary">
         {rows.map(([k, v]) => (
           <div key={k}>

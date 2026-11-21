@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { t } from "./i18n";
 
 const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
@@ -40,5 +41,5 @@ export async function restartApp(timeoutMs = 60_000): Promise<void> {
       /* sunucu henüz açılmadı */
     }
   }
-  throw new Error("Uygulama yeniden açılamadı. Uygulamayı kapatıp yeniden aç.");
+  throw new Error(t("Uygulama yeniden açılamadı. Uygulamayı kapatıp yeniden aç."));
 }

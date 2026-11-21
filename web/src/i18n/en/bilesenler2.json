@@ -1,0 +1,18 @@
+{
+  "Şifreli PDF": "Password-protected PDF",
+  "şifreli. Açmak için şifresini gir. Şifre yalnızca bu sekmede tutulur, kaydedilmez.": "is password-protected. Enter its password to open it. The password is kept only in this tab and is not saved.",
+  "Şifre": "Password",
+  "Vazgeç": "Cancel",
+  "Aç": "Open",
+
+  "LibreOffice kuruluyor…": "Installing LibreOffice…",
+  "LibreOffice'i kur": "Install LibreOffice",
+  "LibreOffice kurulsun mu?": "Install LibreOffice?",
+  "LibreOffice (ücretsiz, yaklaşık 350 MB) internetten indirilip kurulacak. Windows kurulum izni isteyebilir ve işlem birkaç dakika sürebilir.": "LibreOffice (free, about 350 MB) will be downloaded from the internet and installed. Windows may ask for permission to install, and the process can take a few minutes.",
+  "Kurulumu başlat": "Start installation",
+
+  "Kapat": "Close",
+  "Önizleme": "Preview",
+  "Çizilemedi": "Could not render",
+  "PDF, resim, Office ya da Markdown — Toolia uygun aracı otomatik açar.": "PDF, image, Office or Markdown: Toolia opens the right tool automatically."
+}

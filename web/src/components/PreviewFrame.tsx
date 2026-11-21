@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../i18n";
 import { bodyInner, scrollRatio, shellKey } from "../mdpreview";
 
 type PreviewWindow = Window & { __paRender?: (root: ParentNode) => unknown; __sonuc?: unknown };
@@ -56,6 +57,6 @@ export default function PreviewFrame({ html }: { html: string }) {
   };
 
   return (
-    <iframe ref={ref} title="Önizleme" sandbox="allow-scripts allow-same-origin" srcDoc={srcDoc} onLoad={onLoad} />
+    <iframe ref={ref} title={t("Önizleme")} sandbox="allow-scripts allow-same-origin" srcDoc={srcDoc} onLoad={onLoad} />
   );
 }

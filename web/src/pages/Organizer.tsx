@@ -40,6 +40,7 @@ import PageHeader from "../components/PageHeader";
 import PasswordDialog from "../components/PasswordDialog";
 import Thumb from "../components/Thumb";
 import { useJob, useKeepAlive, useUpload } from "../hooks";
+import { t } from "../i18n";
 import { passwords } from "../passwords";
 import { columnsOf, focusAfterDelete, moveSelected, nextIndex, rangeKeys } from "../organizer";
 import { forgetPdf } from "../pdf";
@@ -111,7 +112,7 @@ export default function Organizer({ fileId }: { fileId?: string }) {
     setError(null);
     try {
       const meta = await api.file(id);
-      if (meta.kind !== "pdf") throw new Error(`'${meta.name}' bir PDF değil.`);
+      if (meta.kind !== "pdf") throw new Error(t("'{name}' bir PDF değil.", { name: meta.name }));
       const ready = await withPageCount(meta);
       if (!ready) return navigate("araclar");
       setBase(ready);
@@ -167,25 +168,31 @@ export default function Organizer({ fileId }: { fileId?: string }) {
   const gridHasFocus = () => !!grid.current?.contains(document.activeElement);
   const rotateSel = (deg: number) => {
     commit(items.map((i) => (selected.has(i.key) ? { ...i, rotate: (i.rotate + deg + 360) % 360 } : i)));
-    setAnnounce(`${selected.size} sayfa ${deg > 0 ? "sağa" : "sola"} döndürüldü`);
+    setAnnounce(
+      deg > 0
+        ? t("{n} sayfa sağa döndürüldü", { n: selected.size })
+        : t("{n} sayfa sola döndürüldü", { n: selected.size }),
+    );
   };
   const deleteSel = () => {
     const next = items.filter((i) => !selected.has(i.key));
-    if (!next.length) return setError("Bütün sayfalar silinemez; en az bir sayfa kalmalı.");
+    if (!next.length) return setError(t("Bütün sayfalar silinemez; en az bir sayfa kalmalı."));
     const focusNext = focusAfterDelete(items, next, selected);
     if (gridHasFocus()) wantFocus.current = true;
     commit(next);
-    setAnnounce(`${selected.size} sayfa silindi. ${next.length} sayfa kaldı.`);
+    setAnnounce(t("{n} sayfa silindi. {m} sayfa kaldı.", { n: selected.size, m: next.length }));
     setSelected(new Set());
     setFocusKey(focusNext);
   };
   /** Seçili sayfaları bir konum taşır (Alt+ok). */
   const moveSel = (sel: Set<string>, delta: -1 | 1) => {
     const next = moveSelected(items, sel, delta);
-    if (!next) return setAnnounce(delta < 0 ? "Seçim zaten başta" : "Seçim zaten sonda");
+    if (!next) return setAnnounce(delta < 0 ? t("Seçim zaten başta") : t("Seçim zaten sonda"));
     commit(next);
     wantFocus.current = true;
-    setAnnounce(`${sel.size} sayfa taşındı: ${next.findIndex((i) => sel.has(i.key)) + 1}. konum`);
+    setAnnounce(
+      t("{n} sayfa taşındı: {p}. konum", { n: sel.size, p: next.findIndex((i) => sel.has(i.key)) + 1 }),
+    );
   };
   const insertAt = () => {
     const idx = items.reduce((m, it, i) => (selected.has(it.key) ? i : m), -1);
@@ -211,7 +218,7 @@ export default function Organizer({ fileId }: { fileId?: string }) {
     const newSources = { ...sources };
     for (const m of metas) {
       if (m.kind !== "pdf") {
-        setError(`'${m.name}' bir PDF değil, eklenmedi.`);
+        setError(t("'{name}' bir PDF değil, eklenmedi.", { name: m.name }));
         continue;
       }
       const ready = await withPageCount(m);
@@ -262,7 +269,11 @@ export default function Organizer({ fileId }: { fileId?: string }) {
       else next.add(key);
       setSelected(next);
       setAnchor(key);
-      setAnnounce(`Sayfa ${index + 1} ${next.has(key) ? "seçildi" : "seçimden çıkarıldı"} (${next.size} seçili)`);
+      setAnnounce(
+        next.has(key)
+          ? t("Sayfa {p} seçildi ({n} seçili)", { p: index + 1, n: next.size })
+          : t("Sayfa {p} seçimden çıkarıldı ({n} seçili)", { p: index + 1, n: next.size }),
+      );
       return;
     }
     if (e.altKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
@@ -400,7 +411,11 @@ export default function Organizer({ fileId }: { fileId?: string }) {
           multiple={false}
           accept={ACCEPT.pdf}
           disabled={uploading}
-          title={uploading ? `Yükleniyor… %${Math.round((progress ?? 0) * 100)}` : "Düzenlenecek PDF'i bırak"}
+          title={
+            uploading
+              ? t("Yükleniyor… %{p}", { p: Math.round((progress ?? 0) * 100) })
+              : t("Düzenlenecek PDF'i bırak")
+          }
           onFiles={async (files) => {
             const [m] = await upload(files);
             if (m) navigate(`duzenle/${m.id}`);
@@ -411,9 +426,11 @@ export default function Organizer({ fileId }: { fileId?: string }) {
   }
 
   const label = (item: Item, index: number) => {
-    if (item.blank) return `${index + 1} · boş`;
+    if (item.blank) return t("{i} · boş", { i: index + 1 });
     const src = item.file ? sources[item.file] : undefined;
-    return multiSource && src ? `${index + 1} · ${src.name.replace(/\.pdf$/i, "")} s.${item.page + 1}` : `${index + 1}`;
+    return multiSource && src
+      ? t("{i} · {name} s.{p}", { i: index + 1, name: src.name.replace(/\.pdf$/i, ""), p: item.page + 1 })
+      : `${index + 1}`;
   };
 
   return (
@@ -422,12 +439,12 @@ export default function Organizer({ fileId }: { fileId?: string }) {
         {base && (
           <>
             <span className="chip meta-chip">
-              {base.name} · {items.length} sayfa · sürüm {base.version}
+              {t("{name} · {n} sayfa · sürüm {v}", { name: base.name, n: items.length, v: base.version })}
             </span>
             {base.version > 1 && (
               <button type="button" onClick={undoVersion} disabled={dirty}>
                 <Icon icon={History} size={16} />
-                Önceki sürüme dön
+                {t("Önceki sürüme dön")}
               </button>
             )}
             <button
@@ -437,46 +454,46 @@ export default function Organizer({ fileId }: { fileId?: string }) {
               disabled={dirty}
             >
               <Icon icon={PenLine} size={16} />
-              İçerik ekle
+              {t("İçerik ekle")}
             </button>
             {!dirty && (
               <a className="button" href={api.downloadUrl(base.id)}>
                 <Icon icon={Download} size={16} />
-                İndir
+                {t("İndir")}
               </a>
             )}
           </>
         )}
       </PageHeader>
 
-      <div className="toolbar" role="toolbar" aria-label="Sayfa işlemleri">
+      <div className="toolbar" role="toolbar" aria-label={t("Sayfa işlemleri")}>
         <div className="tool-groups">
           <div className="tool-cluster">
-            <button type="button" onClick={() => rotateSel(-90)} disabled={!selected.size} title="Sola döndür (Shift+R)">
+            <button type="button" onClick={() => rotateSel(-90)} disabled={!selected.size} title={t("Sola döndür (Shift+R)")}>
               <Icon icon={RotateCcw} size={17} />
-              Sola
+              {t("Sola")}
             </button>
-            <button type="button" onClick={() => rotateSel(90)} disabled={!selected.size} title="Sağa döndür (R)">
+            <button type="button" onClick={() => rotateSel(90)} disabled={!selected.size} title={t("Sağa döndür (R)")}>
               <Icon icon={RotateCw} size={17} />
-              Sağa
+              {t("Sağa")}
             </button>
-            <button type="button" onClick={deleteSel} disabled={!selected.size} title="Sil (Delete)">
+            <button type="button" onClick={deleteSel} disabled={!selected.size} title={t("Sil (Delete)")}>
               <Icon icon={Trash2} size={17} />
-              Sil
+              {t("Sil")}
             </button>
           </div>
           <div className="tool-cluster">
-            <button type="button" onClick={addBlank} title="Seçimden sonra (yoksa sona) boş sayfa">
+            <button type="button" onClick={addBlank} title={t("Seçimden sonra (yoksa sona) boş sayfa")}>
               <Icon icon={FilePlus2} size={17} />
-              Boş sayfa
+              {t("Boş sayfa")}
             </button>
-            <button type="button" onClick={reverse} title="Seçili sayfaların (yoksa tümünün) sırasını ters çevir">
+            <button type="button" onClick={reverse} title={t("Seçili sayfaların (yoksa tümünün) sırasını ters çevir")}>
               <Icon icon={ArrowDownUp} size={17} />
-              Ters çevir
+              {t("Ters çevir")}
             </button>
             <button type="button" onClick={() => addInput.current?.click()} disabled={uploading}>
               <Icon icon={Plus} size={17} />
-              {uploading ? "Yükleniyor…" : "PDF ekle"}
+              {uploading ? t("Yükleniyor…") : t("PDF ekle")}
             </button>
             <input
               ref={addInput}
@@ -492,7 +509,7 @@ export default function Organizer({ fileId }: { fileId?: string }) {
           </div>
           <div className="tool-cluster">
             <select
-              aria-label="Seçim"
+              aria-label={t("Seçim")}
               value=""
               onChange={(e) => {
                 const v = e.target.value;
@@ -503,29 +520,29 @@ export default function Organizer({ fileId }: { fileId?: string }) {
                 e.target.value = "";
               }}
             >
-              <option value="">Seç…</option>
-              <option value="all">Tümü (Ctrl+A)</option>
-              <option value="none">Hiçbiri (Esc)</option>
-              <option value="odd">Tek sayfalar</option>
-              <option value="even">Çift sayfalar</option>
+              <option value="">{t("Seç…")}</option>
+              <option value="all">{t("Tümü (Ctrl+A)")}</option>
+              <option value="none">{t("Hiçbiri (Esc)")}</option>
+              <option value="odd">{t("Tek sayfalar")}</option>
+              <option value="even">{t("Çift sayfalar")}</option>
             </select>
-            <button type="button" onClick={undo} disabled={!past.length} title="Geri al (Ctrl+Z)">
+            <button type="button" onClick={undo} disabled={!past.length} title={t("Geri al (Ctrl+Z)")}>
               <Icon icon={Undo2} size={17} />
-              Geri
+              {t("Geri")}
             </button>
-            <button type="button" onClick={redo} disabled={!future.length} title="İleri al (Ctrl+Y)">
+            <button type="button" onClick={redo} disabled={!future.length} title={t("İleri al (Ctrl+Y)")}>
               <Icon icon={Redo2} size={17} />
-              İleri
+              {t("İleri")}
             </button>
           </div>
         </div>
         <div className="tool-cluster end">
           <button type="button" onClick={() => save("new")} disabled={!dirty || saveJob.running}>
-            Yeni dosya olarak kaydet
+            {t("Yeni dosya olarak kaydet")}
           </button>
           <button type="button" className="primary" onClick={() => save("version")} disabled={!dirty || saveJob.running}>
             <Icon icon={Save} size={17} />
-            {saveJob.running ? "Kaydediliyor…" : "Kaydet"}
+            {saveJob.running ? t("Kaydediliyor…") : t("Kaydet")}
           </button>
         </div>
       </div>
@@ -534,15 +551,15 @@ export default function Organizer({ fileId }: { fileId?: string }) {
         <div className="banner error" role="alert">
           {error}
           <button type="button" className="link-button" onClick={() => setError(null)}>
-            Kapat
+            {t("Kapat")}
           </button>
         </div>
       )}
       {noText && base && (
         <div className="banner warn">
-          Bu PDF'te seçilebilir metin yok; taranmış görünüyor.{" "}
+          {t("Bu PDF'te seçilebilir metin yok; taranmış görünüyor.")}{" "}
           <button type="button" className="link-button" onClick={() => navigate("ocr", { dosya: base.id })}>
-            OCR ile aranabilir yap
+            {t("OCR ile aranabilir yap")}
           </button>
         </div>
       )}
@@ -550,18 +567,22 @@ export default function Organizer({ fileId }: { fileId?: string }) {
       {/* Seçim yoksa ipucu: satır hep yerinde durur, sayfalar seçimle aşağı kaymaz. */}
       {selected.size > 0 ? (
         <p className="small selection-line">
-          <strong className="chip accent">{selected.size} sayfa seçili</strong>
-          <span className="muted">sürükleyerek ya da Alt+oklarla taşı, R ile döndür, Delete ile sil</span>
+          <strong className="chip accent">{t("{n} sayfa seçili", { n: selected.size })}</strong>
+          <span className="muted">
+            {t("sürükleyerek ya da Alt+oklarla taşı, R ile döndür, Delete ile sil")}
+          </span>
         </p>
       ) : (
         <p className="muted small hint-line">
-          Başka PDF'leri bu alana sürükleyerek sayfalarını ekleyebilirsin. Çift tıklayınca (ya da Enter) sayfa büyür.
-          Klavye: oklar gezer, Boşluk seçer, Alt+oklar taşır.
+          {t(
+            "Başka PDF'leri bu alana sürükleyerek sayfalarını ekleyebilirsin. Çift tıklayınca (ya da Enter) sayfa büyür. Klavye: oklar gezer, Boşluk seçer, Alt+oklar taşır.",
+          )}
         </p>
       )}
       <p className="sr-only" id="sayfa-ipucu">
-        Oklarla sayfalar arasında gez. Boşluk seçer ya da seçimden çıkarır, Shift ile oklar seçimi genişletir, Ctrl ile
-        oklar yalnızca odağı taşır. Alt ve oklar seçili sayfaları taşır. Enter büyütür, Delete siler, R döndürür.
+        {t(
+          "Oklarla sayfalar arasında gez. Boşluk seçer ya da seçimden çıkarır, Shift ile oklar seçimi genişletir, Ctrl ile oklar yalnızca odağı taşır. Alt ve oklar seçili sayfaları taşır. Enter büyütür, Delete siler, R döndürür.",
+        )}
       </p>
       <p className="sr-only" aria-live="polite">
         {announce}
@@ -574,7 +595,7 @@ export default function Organizer({ fileId }: { fileId?: string }) {
             className="page-grid"
             role="listbox"
             aria-multiselectable="true"
-            aria-label="Sayfalar"
+            aria-label={t("Sayfalar")}
             onClick={(e) => e.target === e.currentTarget && setSelected(new Set())}
             onDragOver={(e) => e.dataTransfer.types.includes("Files") && e.preventDefault()}
             onDrop={(e) => {
@@ -607,7 +628,7 @@ export default function Organizer({ fileId }: { fileId?: string }) {
           {dragging && selected.size > 1 ? (
             <div className="drag-badge">
               <Icon icon={Check} size={15} strokeWidth={2.6} />
-              {selected.size} sayfa
+              {t("{n} sayfa", { n: selected.size })}
             </div>
           ) : null}
         </DragOverlay>
@@ -665,7 +686,11 @@ function PageTile({ item, file, selected, hidden, color, label, focusable, onCli
       aria-pressed={undefined}
       aria-describedby="sayfa-ipucu"
       aria-selected={selected}
-      aria-label={`Sayfa ${label}${item.rotate ? `, ${item.rotate}° döndürülmüş` : ""}`}
+      aria-label={
+        item.rotate
+          ? t("Sayfa {label}, {deg}° döndürülmüş", { label, deg: item.rotate })
+          : t("Sayfa {label}", { label })
+      }
       data-key={item.key}
       onClick={onClick}
       onKeyDown={onKeyDown}
@@ -674,7 +699,7 @@ function PageTile({ item, file, selected, hidden, color, label, focusable, onCli
       {item.blank || !file ? (
         <div className="thumb-box">
           <span className="blank-page" style={{ transform: `rotate(${item.rotate}deg)` }}>
-            Boş sayfa
+            {t("Boş sayfa")}
           </span>
         </div>
       ) : (

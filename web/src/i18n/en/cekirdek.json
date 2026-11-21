@@ -1,0 +1,25 @@
+{
+  "Sunucu {status} döndürdü": "The server returned {status}",
+  "Yükleme başarısız ({status})": "Upload failed ({status})",
+  "Sunucuya ulaşılamadı": "Could not reach the server",
+
+  "Şifre yanlış": "Wrong password",
+  "Bu PDF şifreli": "This PDF is password-protected",
+  "Uygulama yeniden açılamadı. Uygulamayı kapatıp yeniden aç.": "The app could not be reopened. Close it and open it again.",
+  "Kaydedilmemiş değişiklikler var. Çıkarsan kaybolacak. Çıkılsın mı?": "You have unsaved changes. They will be lost if you leave. Leave anyway?",
+
+  "Sayfa düzenleme": "Page editing",
+  "Birleştirme": "Merge",
+  "Bölme": "Split",
+  "İçerik ekleme": "Add content",
+  "Sıkıştırma": "Compression",
+  "OCR (metin tanıma)": "OCR (text recognition)",
+  "Sayfa düzeni ve yazdırma": "Page layout and printing",
+  "Şifreleme": "Encryption",
+  "Şifre kaldırma": "Password removal",
+  "Meta veri temizliği": "Metadata cleanup",
+  "Onarım": "Repair",
+  "Biçim dönüştürme": "Format conversion",
+  "Motor kurulumu": "Engine setup",
+  "{ad} kurulumu": "{ad} setup"
+}

@@ -15,6 +15,7 @@ import InstallLibreOffice from "../components/InstallLibreOffice";
 import Modal from "../components/Modal";
 import { useJobActivity } from "../hooks";
 import { restartApp } from "../restart";
+import { type Lang, setLang, storedLang, t } from "../i18n";
 import { resetTheme, setTheme as setAppTheme, useStoredTheme } from "../theme";
 import { toast } from "../toast";
 
@@ -37,9 +38,9 @@ const RETENTION_PRESETS = [
 ] as const;
 
 function statusLabel(e: EngineStatus): { text: string; cls: string } {
-  if (e.ok) return { text: "Hazır", cls: "ok" };
-  if (e.available) return { text: "Eksik parça", cls: "warn" };
-  return { text: "Kurulu değil", cls: "bad" };
+  if (e.ok) return { text: t("Hazır"), cls: "ok" };
+  if (e.available) return { text: t("Eksik parça"), cls: "warn" };
+  return { text: t("Kurulu değil"), cls: "bad" };
 }
 
 const STATUS_ICON = { ok: Check, warn: TriangleAlert, bad: CircleX } as const;
@@ -47,7 +48,7 @@ const STATUS_ICON = { ok: Check, warn: TriangleAlert, bad: CircleX } as const;
 /** Ayar kaydı + (gerekiyorsa) yeniden başlatma; hata bildirim olarak gösterilir. */
 function useSave(onSettings: (s: SettingsResponse) => void) {
   const [busy, setBusy] = useState(false);
-  const save = async (changes: Partial<SettingsValues>, okText = "Ayarlar kaydedildi.") => {
+  const save = async (changes: Partial<SettingsValues>, okText = t("Ayarlar kaydedildi.")) => {
     setBusy(true);
     try {
       const s = await api.saveSettings(changes);
@@ -70,14 +71,13 @@ function RestartLine({ settings }: { settings: SettingsResponse }) {
   if (!settings.restart_available) {
     return (
       <div className="banner warn" role="status">
-        Port ya da telefon modu değişikliği uygulama yeniden başlatılınca geçerli olur: uygulamayı kapatıp yeniden aç.
+        {t("Port ya da telefon modu değişikliği uygulama yeniden başlatılınca geçerli olur: uygulamayı kapatıp yeniden aç.")}
       </div>
     );
   }
   return (
     <div className="banner warn restart-banner" role="status">
-      Port ya da telefon modu değişikliğinin geçerli olması için uygulama yeniden başlamalı (pencere açık kalır,
-      açık işler varsa bitmesini bekle).{" "}
+      {t("Port ya da telefon modu değişikliğinin geçerli olması için uygulama yeniden başlamalı (pencere açık kalır, açık işler varsa bitmesini bekle).")}{" "}
       <button
         type="button"
         className="primary small"
@@ -90,7 +90,7 @@ function RestartLine({ settings }: { settings: SettingsResponse }) {
           });
         }}
       >
-        {restarting ? "Yeniden başlatılıyor…" : "Şimdi yeniden başlat"}
+        {restarting ? t("Yeniden başlatılıyor…") : t("Şimdi yeniden başlat")}
       </button>
     </div>
   );
@@ -131,14 +131,13 @@ function GeneralSettings({ settings, onSettings }: { settings: SettingsResponse;
   return (
     <form className="card settings-card settings-form" onSubmit={submit} aria-labelledby="genel-baslik">
       <div className="section-head">
-        <h2 id="genel-baslik">Genel</h2>
+        <h2 id="genel-baslik">{t("Genel")}</h2>
       </div>
       <div className="setting-row">
         <div className="setting-label">
-          <label htmlFor="ayar-saklama">Dosyaları sakla</label>
+          <label htmlFor="ayar-saklama">{t("Dosyaları sakla")}</label>
           <p id="ayar-saklama-not" className="muted small">
-            Bu süreden uzun açılmamış, sabitlenmemiş dosyalar ve iş kayıtları silinir. Saklamak istediklerini İşler ve
-            dosyalar'da sabitle.
+            {t("Bu süreden uzun açılmamış, sabitlenmemiş dosyalar ve iş kayıtları silinir. Saklamak istediklerini İşler ve dosyalar'da sabitle.")}
           </p>
         </div>
         <div className="setting-control">
@@ -154,7 +153,7 @@ function GeneralSettings({ settings, onSettings }: { settings: SettingsResponse;
               aria-invalid={!retentionValid}
               onChange={(e) => setRetention(e.target.value)}
             />{" "}
-            saat
+            {t("saat")}
           </span>
           <span className="preset-row">
             {RETENTION_PRESETS.map(([h, label]) => (
@@ -164,20 +163,20 @@ function GeneralSettings({ settings, onSettings }: { settings: SettingsResponse;
                 className={`small preset${hours === h ? " on" : ""}`}
                 onClick={() => setRetention(String(h))}
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </span>
-          {!retentionValid && <p className="error-text small">1 ile 8760 saat (1 yıl) arasında bir tam sayı yaz.</p>}
+          {!retentionValid && <p className="error-text small">{t("1 ile 8760 saat (1 yıl) arasında bir tam sayı yaz.")}</p>}
         </div>
       </div>
 
       <div className="setting-row">
         <div className="setting-label">
-          <label htmlFor="ayar-kasa">Obsidian kasası</label>
+          <label htmlFor="ayar-kasa">{t("Obsidian kasası")}</label>
           <p id="ayar-kasa-not" className="muted small">
-            Markdown → PDF'te <code>![[resim.png]]</code> resimleri kasanın her yerinde adıyla aranır. Yalnızca bu klasörün
-            altı okunur.
+            {t("Markdown → PDF'te")} <code>![[resim.png]]</code>{" "}
+            {t("resimleri kasanın her yerinde adıyla aranır. Yalnızca bu klasörün altı okunur.")}
           </p>
         </div>
         <div className="setting-control">
@@ -185,7 +184,7 @@ function GeneralSettings({ settings, onSettings }: { settings: SettingsResponse;
             <input
               id="ayar-kasa"
               className="input"
-              placeholder="Tanımlı değil"
+              placeholder={t("Tanımlı değil")}
               value={vault}
               aria-describedby="ayar-kasa-not"
               onChange={(e) => setVault(e.target.value)}
@@ -193,12 +192,12 @@ function GeneralSettings({ settings, onSettings }: { settings: SettingsResponse;
             {settings.desktop && (
               <button type="button" onClick={() => void pick()} disabled={picking}>
                 <Icon icon={FolderOpen} size={17} />
-                {picking ? "Pencere açık…" : "Klasör seç…"}
+                {picking ? t("Pencere açık…") : t("Klasör seç…")}
               </button>
             )}
             {vault && (
               <button type="button" className="link-button" onClick={() => setVault("")}>
-                Kaldır
+                {t("Kaldır")}
               </button>
             )}
           </div>
@@ -207,14 +206,14 @@ function GeneralSettings({ settings, onSettings }: { settings: SettingsResponse;
 
       <div className="setting-row">
         <div className="setting-label">
-          <label htmlFor="ayar-tema">Varsayılan tema</label>
-          <p className="muted small">Markdown → PDF belge teması (notun ön bilgisinde belirtilmemişse).</p>
+          <label htmlFor="ayar-tema">{t("Varsayılan tema")}</label>
+          <p className="muted small">{t("Markdown → PDF belge teması (notun ön bilgisinde belirtilmemişse).")}</p>
         </div>
         <div className="setting-control">
           <select id="ayar-tema" value={theme} onChange={(e) => setTheme(e.target.value)}>
-            {settings.themes.map((t) => (
-              <option key={t} value={t}>
-                {THEME_LABEL[t] ?? t}
+            {settings.themes.map((th) => (
+              <option key={th} value={th}>
+                {t(THEME_LABEL[th] ?? th)}
               </option>
             ))}
           </select>
@@ -222,8 +221,8 @@ function GeneralSettings({ settings, onSettings }: { settings: SettingsResponse;
       </div>
       <div className="setting-row">
         <div className="setting-label">
-          <label htmlFor="ayar-kagit">Varsayılan kağıt</label>
-          <p className="muted small">Markdown → PDF'te notun ön bilgisinde ya da ekranda seçilmemişse kullanılır.</p>
+          <label htmlFor="ayar-kagit">{t("Varsayılan kağıt")}</label>
+          <p className="muted small">{t("Markdown → PDF'te notun ön bilgisinde ya da ekranda seçilmemişse kullanılır.")}</p>
         </div>
         <div className="setting-control">
           <select id="ayar-kagit" value={paper} onChange={(e) => setPaper(e.target.value)}>
@@ -237,23 +236,24 @@ function GeneralSettings({ settings, onSettings }: { settings: SettingsResponse;
       </div>
       <div className="form-actions">
         <button type="submit" className="primary" disabled={!dirty || !retentionValid || busy || !settings.local}>
-          {busy ? "Kaydediliyor…" : "Kaydet"}
+          {busy ? t("Kaydediliyor…") : t("Kaydet")}
         </button>
-        {!settings.local && <span className="muted small">Ayarlar yalnızca bilgisayarın kendisinden değiştirilebilir.</span>}
+        {!settings.local && <span className="muted small">{t("Ayarlar yalnızca bilgisayarın kendisinden değiştirilebilir.")}</span>}
       </div>
     </form>
   );
 }
 
-function PhoneQr() {
+function PhoneQr({ windows, port }: { windows: boolean; port: number }) {
   const [info, setInfo] = useState<LanInfo | null>(null);
+  const [selectedIp, setSelectedIp] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const refresh = useCallback(() => {
     api
-      .lan()
+      .lan(selectedIp)
       .then(setInfo)
       .catch((e: Error) => setError(e.message));
-  }, []);
+  }, [selectedIp]);
 
   // QR kod tek kullanımlık: bir cihaz eşleşince yenisi çıkar, bağlı cihaz listesi de değişir.
   useEffect(() => {
@@ -264,27 +264,48 @@ function PhoneQr() {
 
   if (error) return <p className="muted small">{error}</p>;
   if (!info?.enabled) return null;
-  if (!info.urls?.length) return <p className="warn-line">Yerel ağ adresi bulunamadı. Wi-Fi'ye bağlı mısın?</p>;
+  if (!info.urls?.length) return <p className="warn-line">{t("Yerel ağ adresi bulunamadı. Wi-Fi'ye bağlı mısın?")}</p>;
+  const ips = info.ips ?? [];
+  const activeIp = info.selected_ip ?? ips[0];
+  const activeUrl = (activeIp && info.urls.find((u) => u.startsWith(`http://${activeIp}:`))) || info.urls[0];
+  const activePort = info.port ?? port;
   return (
     <div className="phone-mode">
       {info.qr_svg && (
         <img
           className="qr"
-          alt="Telefonla bağlanmak için QR kod"
+          alt={t("Telefonla bağlanmak için QR kod")}
           src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(info.qr_svg)}`}
         />
       )}
       <div className="phone-info">
-        <p>Telefonun kamerasıyla QR kodu okut ya da adresi yaz:</p>
-        {info.urls.map((u) => (
-          <p key={u} className="mono small break phone-url">
-            {u}
+        <p>{t("Telefonun kamerasıyla QR kodu okut ya da adresi yaz:")}</p>
+        {ips.length > 1 && (
+          <div className="preset-row" role="group" aria-label={t("Ağ adresi seç")}>
+            {ips.map((ip) => (
+              <button
+                key={ip}
+                type="button"
+                className={`small preset mono${ip === activeIp ? " on" : ""}`}
+                aria-pressed={ip === activeIp}
+                onClick={() => setSelectedIp(ip)}
+              >
+                {ip}
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="mono small break phone-url">{activeUrl}</p>
+        <p className="muted small">{t("Kod tek kullanımlık; her cihaz için yenisi çıkar.")}</p>
+        {!windows && (
+          <p className="muted small">
+            {t("Telefon bağlanamıyorsa güvenlik duvarında portu aç:")}{" "}
+            <code>sudo ufw allow {activePort}/tcp</code>
           </p>
-        ))}
-        <p className="muted small">Kod tek kullanımlık; her cihaz için yenisi çıkar.</p>
+        )}
         {!!info.devices?.length && (
           <>
-            <p>Bağlı cihazlar: {info.devices.map((d) => d.ip).join(", ")}</p>
+            <p>{t("Bağlı cihazlar: {ips}", { ips: info.devices.map((d) => d.ip).join(", ") })}</p>
             <button
               type="button"
               className="danger"
@@ -295,7 +316,7 @@ function PhoneQr() {
                   .catch((e: Error) => setError(e.message))
               }
             >
-              Hepsinin bağlantısını kes
+              {t("Hepsinin bağlantısını kes")}
             </button>
           </>
         )}
@@ -319,10 +340,14 @@ type Phase = "ask" | "saving" | "restarting" | "failed";
  * yeniden başlatır (telefon modu sunucunun yerel ağdan da dinlemesi demek: açılışta seçilir). */
 function PhoneModeDialog({
   enable,
+  windows,
+  port,
   onSettings,
   onClose,
 }: {
   enable: boolean;
+  windows: boolean;
+  port: number;
   onSettings: Props["onSettings"];
   onClose: () => void;
 }) {
@@ -333,9 +358,9 @@ function PhoneModeDialog({
   const [hidden, setHidden] = useState(false);
   const hiddenRef = useRef(false);
   const busy = phase === "saving" || phase === "restarting";
-  const failText = `Ayar kaydedildi, ama uygulama yeniden başlatılamadı. Telefon modu, uygulama yeniden açılınca ${
-    enable ? "açılır" : "kapanır"
-  }.`;
+  const failText = t("Ayar kaydedildi, ama uygulama yeniden başlatılamadı. Telefon modu, uygulama yeniden açılınca {durum}.", {
+    durum: enable ? t("açılır") : t("kapanır"),
+  });
 
   const confirm = async () => {
     setPhase("saving");
@@ -350,7 +375,7 @@ function PhoneModeDialog({
     }
     onSettings(s);
     if (!s.restart_available) {
-      toast.ok("Kaydedildi. Geçerli olması için uygulamayı kapatıp yeniden aç.");
+      toast.ok(t("Kaydedildi. Geçerli olması için uygulamayı kapatıp yeniden aç."));
       onClose();
       return;
     }
@@ -373,7 +398,7 @@ function PhoneModeDialog({
   if (hidden) return null;
   return (
     <Modal
-      title={enable ? "Telefon modu açılsın mı?" : "Telefon modu kapatılsın mı?"}
+      title={enable ? t("Telefon modu açılsın mı?") : t("Telefon modu kapatılsın mı?")}
       busy={busy}
       onClose={() => {
         if (!busy) return onClose();
@@ -385,38 +410,43 @@ function PhoneModeDialog({
         {enable ? (
           <>
             <p>
-              Aynı Wi-Fi'deki telefon ve tabletler, bu bilgisayarda gösterilen QR kodu okutarak Toolia'yı
-              kullanabilir.
+              {t("Aynı Wi-Fi'deki telefon ve tabletler, bu bilgisayarda gösterilen QR kodu okutarak Toolia'yı kullanabilir.")}
             </p>
             <p>
-              Telefon modu açık başlasın diye uygulama birkaç saniyeliğine yeniden başlatılacak. Pencere açık kalır;
-              uygulama açılınca QR kod bu sayfada görünür.
+              {t("Telefon modu açık başlasın diye uygulama birkaç saniyeliğine yeniden başlatılacak. Pencere açık kalır; uygulama açılınca QR kod bu sayfada görünür.")}
             </p>
             <ul className="phone-notes muted small">
-              <li>Bağlantı yerel ağda şifresizdir (HTTP): yalnızca güvendiğin Wi-Fi'de aç, işin bitince kapat.</li>
-              <li>Yalnızca QR kodu okutan cihazlar bağlanabilir; kod tek kullanımlıktır.</li>
+              <li>{t("Bağlantı yerel ağda şifresizdir (HTTP): yalnızca güvendiğin Wi-Fi'de aç, işin bitince kapat.")}</li>
+              <li>{t("Yalnızca QR kodu okutan cihazlar bağlanabilir; kod tek kullanımlıktır.")}</li>
               <li>
-                Windows güvenlik duvarı ilk seferde izin isteyebilir: "Özel ağlar" için izin ver. Wi-Fi'n Windows'ta
-                "Ortak ağ" olarak görünüyorsa telefon bağlanamaz; güvendiğin ağsa ağ ayarlarından "Özel" yap.
+                {windows ? (
+                  t("Windows güvenlik duvarı ilk seferde izin isteyebilir: \"Özel ağlar\" için izin ver. Wi-Fi'n Windows'ta \"Ortak ağ\" olarak görünüyorsa telefon bağlanamaz; güvendiğin ağsa ağ ayarlarından \"Özel\" yap.")
+                ) : (
+                  <>
+                    {t("Linux'ta güvenlik duvarı (ufw / firewalld) açıksa telefon bağlanamaz; portu açmak için:")}{" "}
+                    <code>sudo ufw allow {port}/tcp</code>
+                  </>
+                )}
               </li>
             </ul>
           </>
         ) : (
           <>
-            <p>Telefon ve tabletler artık bağlanamaz; bağlı cihazların bağlantısı kesilir.</p>
-            <p>Bunun için uygulama birkaç saniyeliğine yeniden başlatılacak. Pencere açık kalır.</p>
+            <p>{t("Telefon ve tabletler artık bağlanamaz; bağlı cihazların bağlantısı kesilir.")}</p>
+            <p>{t("Bunun için uygulama birkaç saniyeliğine yeniden başlatılacak. Pencere açık kalır.")}</p>
           </>
         )}
         {jobs > 0 && phase !== "failed" && (
           <div className="banner warn" role="alert">
-            Şu an {jobs === 1 ? "bir iş" : `${jobs} iş`} çalışıyor. Yeniden başlatma çalışan işleri durdurur:
-            bitmelerini beklemen önerilir.
+            {t("Şu an {isler} çalışıyor. Yeniden başlatma çalışan işleri durdurur: bitmelerini beklemen önerilir.", {
+              isler: jobs === 1 ? t("bir iş") : t("{n} iş", { n: jobs }),
+            })}
           </div>
         )}
         {phase === "restarting" && (
           <p className="phone-restarting" role="status">
             <Icon icon={LoaderCircle} className="spin" />
-            Uygulama yeniden başlatılıyor… Birkaç saniye sürer, sayfa kendiliğinden yenilenir.
+            {t("Uygulama yeniden başlatılıyor… Birkaç saniye sürer, sayfa kendiliğinden yenilenir.")}
           </p>
         )}
         {phase === "failed" && (
@@ -426,27 +456,27 @@ function PhoneModeDialog({
         )}
         {phase !== "failed" && error && (
           <div className="banner error" role="alert">
-            Kaydedilemedi: {error}
+            {t("Kaydedilemedi: {hata}", { hata: error })}
           </div>
         )}
         <div className="modal-actions">
           {phase === "failed" ? (
             <button type="button" data-autofocus onClick={onClose}>
-              Kapat
+              {t("Kapat")}
             </button>
           ) : (
             <>
               <button type="button" data-autofocus disabled={busy} onClick={onClose}>
-                Vazgeç
+                {t("Vazgeç")}
               </button>
               <button type="button" className="primary" disabled={busy} onClick={() => void confirm()}>
                 {phase === "restarting"
-                  ? "Yeniden başlatılıyor…"
+                  ? t("Yeniden başlatılıyor…")
                   : phase === "saving"
-                    ? "Kaydediliyor…"
+                    ? t("Kaydediliyor…")
                     : enable
-                      ? "Aç ve yeniden başlat"
-                      : "Kapat ve yeniden başlat"}
+                      ? t("Aç ve yeniden başlat")
+                      : t("Kapat ve yeniden başlat")}
               </button>
             </>
           )}
@@ -456,7 +486,15 @@ function PhoneModeDialog({
   );
 }
 
-function PhoneMode({ settings, onSettings }: { settings: SettingsResponse; onSettings: Props["onSettings"] }) {
+function PhoneMode({
+  settings,
+  windows,
+  onSettings,
+}: {
+  settings: SettingsResponse;
+  windows: boolean;
+  onSettings: Props["onSettings"];
+}) {
   const { save, busy } = useSave(onSettings);
   const [asking, setAsking] = useState<boolean | null>(null);
   const card = useRef<HTMLElement>(null);
@@ -472,14 +510,14 @@ function PhoneMode({ settings, onSettings }: { settings: SettingsResponse; onSet
     markPhoneSection(false);
     card.current?.scrollIntoView({ block: "start" });
     heading.current?.focus({ preventScroll: true });
-    toast.ok(running ? "Telefon modu açık: telefonla QR kodu okut." : "Telefon modu kapandı.");
+    toast.ok(running ? t("Telefon modu açık: telefonla QR kodu okut.") : t("Telefon modu kapandı."));
   }, [running]);
 
   return (
     <section ref={card} className="card settings-card phone-card" aria-labelledby="telefon-baslik">
       <div className="section-head">
         <h2 id="telefon-baslik" ref={heading} tabIndex={-1}>
-          Telefon modu
+          {t("Telefon modu")}
         </h2>
       </div>
       <label className="check">
@@ -494,16 +532,20 @@ function PhoneMode({ settings, onSettings }: { settings: SettingsResponse; onSet
             else setAsking(next);
           }}
         />
-        Aynı Wi-Fi'deki telefon ve tabletler bu bilgisayardaki Toolia'yı kullanabilsin
+        {t("Aynı Wi-Fi'deki telefon ve tabletler bu bilgisayardaki Toolia'yı kullanabilsin")}
       </label>
       <p className="muted small">
-        Açıkken uygulama yerel ağdan da erişilebilir; yalnızca burada gösterilen QR kodu okutan cihazlar bağlanır.
-        Bağlantı yerel ağda şifresizdir (HTTP): yalnızca güvendiğin Wi-Fi'de aç, işin bitince kapat. Açıp kapatınca
-        uygulama birkaç saniyeliğine yeniden başlar.
+        {t("Açıkken uygulama yerel ağdan da erişilebilir; yalnızca burada gösterilen QR kodu okutan cihazlar bağlanır. Bağlantı yerel ağda şifresizdir (HTTP): yalnızca güvendiğin Wi-Fi'de aç, işin bitince kapat. Açıp kapatınca uygulama birkaç saniyeliğine yeniden başlar.")}
       </p>
-      {running && <PhoneQr />}
+      {running && <PhoneQr windows={windows} port={settings.running.port} />}
       {asking !== null && (
-        <PhoneModeDialog enable={asking} onSettings={onSettings} onClose={() => setAsking(null)} />
+        <PhoneModeDialog
+          enable={asking}
+          windows={windows}
+          port={settings.values.port}
+          onSettings={onSettings}
+          onClose={() => setAsking(null)}
+        />
       )}
     </section>
   );
@@ -527,18 +569,19 @@ function VersionInfo({ data }: { data: EnginesResponse }) {
   return (
     <section className="card settings-card" aria-labelledby="surum-baslik">
       <div className="section-head">
-        <h2 id="surum-baslik">Sürüm</h2>
+        <h2 id="surum-baslik">{t("Sürüm")}</h2>
         <button type="button" onClick={() => void check()} disabled={checking}>
           <Icon icon={RefreshCw} size={17} className={checking ? "spin" : undefined} />
-          {checking ? "Denetleniyor…" : "Güncellemeleri denetle"}
+          {checking ? t("Denetleniyor…") : t("Güncellemeleri denetle")}
         </button>
       </div>
       <p>
         Toolia <strong>{data.version}</strong>
-        {data.installed ? " (masaüstü kurulumu)" : " (geliştirme)"}
+        {" "}
+        {data.installed ? t("(masaüstü kurulumu)") : t("(geliştirme)")}
       </p>
       <p className="muted small">
-        Denetim yalnızca bu düğmeye basınca yapılır: GitHub'a tek bir istek gider, hiçbir dosya gönderilmez.
+        {t("Denetim yalnızca bu düğmeye basınca yapılır: GitHub'a tek bir istek gider, hiçbir dosya gönderilmez.")}
       </p>
       {error && <p className="error-text">{error}</p>}
       {info && (
@@ -547,9 +590,19 @@ function VersionInfo({ data }: { data: EnginesResponse }) {
           {info.newer && (
             <>
               <a href={info.url} target="_blank" rel="noreferrer">
-                Sürüm sayfası
+                {t("Sürüm sayfası")}
               </a>
-              : yeni paketi indir, içindeki <strong>Kur</strong>'a çift tıkla (belgelerin ve ayarların korunur).
+              {data.windows ? (
+                <>
+                  {t(": yeni paketi indir, içindeki")} <strong>{t("Kur")}</strong>
+                  {t("'a çift tıkla (belgelerin ve ayarların korunur).")}
+                </>
+              ) : (
+                <>
+                  {t(": yeni paketi indir, ayıkla ve")} <code>./kur.sh</code>{" "}
+                  {t("komutunu çalıştır (belgelerin ve ayarların korunur).")}
+                </>
+              )}
             </>
           )}
         </p>
@@ -576,7 +629,7 @@ export function EngineList({ data, onRefresh }: { data: EnginesResponse; onRefre
               </span>
             </div>
             <p className="muted">
-              {e.key === "libreoffice" ? "Word / Excel / PowerPoint → PDF ve Office biçim dönüştürme" : e.needed_for}
+              {e.key === "libreoffice" ? t("Word / Excel / PowerPoint → PDF ve Office biçim dönüştürme") : t(e.needed_for)}
             </p>
             {e.problems.map((p) => (
               <p key={p} className="warn-line">
@@ -586,9 +639,9 @@ export function EngineList({ data, onRefresh }: { data: EnginesResponse; onRefre
             {!e.available && e.key === "libreoffice" && data.windows && (
               <InstallLibreOffice onInstalled={onRefresh} />
             )}
-            {!e.available && e.install_hint && (
+            {!e.ok && e.install_hint && (
               <p className="engine-hint">
-                Elle kurulum: <code>{e.install_hint}</code>
+                {t("Elle kurulum:")} <code>{e.install_hint}</code>
               </p>
             )}
           </article>
@@ -612,10 +665,9 @@ function PortSetting({ settings, onSettings }: { settings: SettingsResponse; onS
       }}
     >
       <div className="setting-label">
-        <label htmlFor="ayar-port">Port</label>
+        <label htmlFor="ayar-port">{t("Port")}</label>
         <p className="muted small">
-          Şu an {settings.running.port} portunda çalışıyor. Masaüstü uygulaması port doluysa kendiliğinden boş bir port
-          seçer; değiştirmen genellikle gerekmez.
+          {t("Şu an {port} portunda çalışıyor. Masaüstü uygulaması port doluysa kendiliğinden boş bir port seçer; değiştirmen genellikle gerekmez.", { port: settings.running.port })}
         </p>
       </div>
       <div className="setting-control">
@@ -631,11 +683,44 @@ function PortSetting({ settings, onSettings }: { settings: SettingsResponse; onS
             onChange={(e) => setPort(e.target.value)}
           />{" "}
           <button type="submit" disabled={!valid || n === settings.values.port || busy || !settings.local}>
-            Kaydet
+            {t("Kaydet")}
           </button>
         </span>
       </div>
     </form>
+  );
+}
+
+function LanguageSetting() {
+  const stored = storedLang();
+  const options: [Lang | null, string][] = [
+    [null, t("Sistem")],
+    ["tr", "Türkçe"],
+    ["en", "English"],
+  ];
+  return (
+    <div className="setting-row">
+      <div className="setting-label">
+        <span className="setting-title">{t("Dil")}</span>
+        <p className="muted small">{t("Seçince arayüz yeniden yüklenir. Sistem seçiliyse işletim sistemi diline uyar.")}</p>
+      </div>
+      <div className="setting-control">
+        <div className="segmented seg-track" role="group" aria-label={t("Dil")}>
+          {options.map(([value, label]) => (
+            <button
+              key={label}
+              type="button"
+              className={stored === value ? "on" : undefined}
+              aria-pressed={stored === value}
+              onClick={() => stored !== value && setLang(value)}
+            >
+              {value === null && <Icon icon={Monitor} size={16} />}
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -644,32 +729,33 @@ function AppearanceSetting() {
   return (
     <section className="card settings-card" aria-labelledby="gorunum-baslik">
       <div className="section-head">
-        <h2 id="gorunum-baslik">Görünüm</h2>
+        <h2 id="gorunum-baslik">{t("Görünüm")}</h2>
       </div>
       <div className="setting-row">
         <div className="setting-label">
-          <span className="setting-title">Arayüz teması</span>
+          <span className="setting-title">{t("Arayüz teması")}</span>
           <p className="muted small">
-            Sistem seçiliyse Windows/tarayıcı tercihini izler; bu tarayıcıda saklanır.
+            {t("Sistem seçiliyse sistem/tarayıcı tercihini izler; bu tarayıcıda saklanır.")}
           </p>
         </div>
         <div className="setting-control">
-          <div className="segmented seg-track" role="group" aria-label="Arayüz teması">
+          <div className="segmented seg-track" role="group" aria-label={t("Arayüz teması")}>
             <button type="button" className={stored === null ? "on" : undefined} aria-pressed={stored === null} onClick={resetTheme}>
               <Icon icon={Monitor} size={16} />
-              Sistem
+              {t("Sistem")}
             </button>
             <button type="button" className={stored === "light" ? "on" : undefined} aria-pressed={stored === "light"} onClick={() => setAppTheme("light")}>
               <Icon icon={Sun} size={16} />
-              Açık
+              {t("Açık")}
             </button>
             <button type="button" className={stored === "dark" ? "on" : undefined} aria-pressed={stored === "dark"} onClick={() => setAppTheme("dark")}>
               <Icon icon={Moon} size={16} />
-              Koyu
+              {t("Koyu")}
             </button>
           </div>
         </div>
       </div>
+      <LanguageSetting />
     </section>
   );
 }
@@ -678,31 +764,31 @@ export default function Settings({ data, refreshing, onRefresh, settings, onSett
   return (
     <div className="settings">
       <header className="screen-head">
-        <h1>Ayarlar</h1>
-        <p>Dosya saklama, görünüm, Markdown varsayılanları, telefon modu ve motorlar.</p>
+        <h1>{t("Ayarlar")}</h1>
+        <p>{t("Dosya saklama, görünüm, Markdown varsayılanları, telefon modu ve motorlar.")}</p>
       </header>
       {/* Yapışkan: port "Gelişmiş" altında değişse de uyarı ekranda kalır. */}
       {settings && <RestartLine settings={settings} />}
       {settings && <GeneralSettings key={settings.config_file} settings={settings} onSettings={onSettings} />}
       <AppearanceSetting />
-      {settings && <PhoneMode settings={settings} onSettings={onSettings} />}
+      {settings && <PhoneMode settings={settings} windows={data?.windows ?? true} onSettings={onSettings} />}
 
       <section className="card settings-card" aria-labelledby="motorlar-baslik">
         <div className="section-head">
-          <h2 id="motorlar-baslik">Motorlar</h2>
+          <h2 id="motorlar-baslik">{t("Motorlar")}</h2>
           <button type="button" onClick={onRefresh} disabled={refreshing}>
             <Icon icon={RefreshCw} size={17} className={refreshing ? "spin" : undefined} />
-            {refreshing ? "Taranıyor…" : "Yeniden tara"}
+            {refreshing ? t("Taranıyor…") : t("Yeniden tara")}
           </button>
         </div>
-        {!data ? <p className="muted">Yükleniyor…</p> : <EngineList data={data} onRefresh={onRefresh} />}
+        {!data ? <p className="muted">{t("Yükleniyor…")}</p> : <EngineList data={data} onRefresh={onRefresh} />}
       </section>
 
       {data && <VersionInfo data={data} />}
 
       <p className="settings-more">
         <button type="button" className="link-button" onClick={onShowWelcome}>
-          Tanıtımı yeniden göster
+          {t("Tanıtımı yeniden göster")}
         </button>
       </p>
 
@@ -710,52 +796,51 @@ export default function Settings({ data, refreshing, onRefresh, settings, onSett
         <details className="card advanced">
           <summary>
             <Icon icon={ChevronRight} className="advanced-caret" />
-            Gelişmiş
+            {t("Gelişmiş")}
           </summary>
           <div className="advanced-body">
             {settings && <PortSetting settings={settings} onSettings={onSettings} />}
-            <h3>Klasörler</h3>
+            <h3>{t("Klasörler")}</h3>
             <dl className="kv">
               <div>
-                <dt>Veri klasörü</dt>
+                <dt>{t("Veri klasörü")}</dt>
                 <dd className="mono">{data.data_dir}</dd>
               </div>
               <div>
-                <dt>Ayar dosyası</dt>
+                <dt>{t("Ayar dosyası")}</dt>
                 <dd className="mono">{settings?.config_file ?? data.config_file ?? "—"}</dd>
               </div>
               <div>
-                <dt>Günlük dosyası</dt>
+                <dt>{t("Günlük dosyası")}</dt>
                 <dd className="mono">{data.log_file}</dd>
               </div>
               {data.install_dir && (
                 <div>
-                  <dt>Kurulum klasörü</dt>
+                  <dt>{t("Kurulum klasörü")}</dt>
                   <dd className="mono">{data.install_dir}</dd>
                 </div>
               )}
             </dl>
-            <h3>Motor yolları</h3>
+            <h3>{t("Motor yolları")}</h3>
             <dl className="kv">
               {data.engines.map((e) => (
                 <div key={e.key}>
                   <dt>{e.name}</dt>
-                  <dd className="mono">{e.path ?? "bulunamadı"}</dd>
+                  <dd className="mono">{e.path ?? t("bulunamadı")}</dd>
                 </div>
               ))}
             </dl>
-            <h3>Kütüphaneler</h3>
+            <h3>{t("Kütüphaneler")}</h3>
             <dl className="kv">
               {Object.entries(data.libraries).map(([k, v]) => (
                 <div key={k}>
                   <dt>{k}</dt>
-                  <dd className="mono">{v ?? "yok"}</dd>
+                  <dd className="mono">{v ?? t("yok")}</dd>
                 </div>
               ))}
             </dl>
             <p className="muted small">
-              Sınırlar ve motor yolları gibi diğer ayarlar ayar dosyasından değiştirilebilir (açıklamalı örnek:
-              config.example.toml).
+              {t("Sınırlar ve motor yolları gibi diğer ayarlar ayar dosyasından değiştirilebilir (açıklamalı örnek: config.example.toml).")}
             </p>
           </div>
         </details>

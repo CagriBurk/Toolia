@@ -111,7 +111,10 @@ def print_text(source: Path, output: Path, *, browser_path: str | None,
     name = display_name or Path(source).name
     warnings: list[str] = []
     text = read_text(Path(source), warnings, name).replace("\r\n", "\n")
-    with tempfile.TemporaryDirectory(prefix="pa-txt-") as tmp:
+    from toolia import engines
+
+    with tempfile.TemporaryDirectory(prefix="pa-txt-",
+                                     dir=engines.snap_temp_base(browser_path)) as tmp:
         page = Path(tmp) / "metin.html"
         page.write_text(TEXT_TEMPLATE.format(title=html_lib.escape(Path(name).stem),
                                              body=html_lib.escape(text)), encoding="utf-8")

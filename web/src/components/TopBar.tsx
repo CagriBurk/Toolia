@@ -6,6 +6,7 @@ import { toolForRoute } from "../tools";
 import BrandMark from "./BrandMark";
 import Icon from "./Icon";
 import ToolMenu from "./ToolMenu";
+import { t } from "../i18n";
 
 interface Props {
   section: string;
@@ -26,23 +27,23 @@ function JobBadge({ section }: { section: string }) {
   let badge = null;
   if (running)
     badge = (
-      <a className="chip accent" href="#/isler" title="İşlere git">
+      <a className="chip accent" href="#/isler" title={t("İşlere git")}>
         <Icon icon={LoaderCircle} size={15} className="spin" />
-        <span className="chip-label">{running === 1 ? "Çalışıyor…" : `${running} iş çalışıyor`}</span>
+        <span className="chip-label">{running === 1 ? t("Çalışıyor…") : t("{n} iş çalışıyor", { n: running })}</span>
       </a>
     );
   else if (failed)
     badge = (
-      <a className="chip bad" href="#/isler" title="İşlere git">
+      <a className="chip bad" href="#/isler" title={t("İşlere git")}>
         <Icon icon={CircleX} size={15} />
-        <span className="chip-label">{failed === 1 ? "1 iş başarısız" : `${failed} iş başarısız`}</span>
+        <span className="chip-label">{t("{n} iş başarısız", { n: failed })}</span>
       </a>
     );
   else if (done)
     badge = (
-      <a className="chip ok" href="#/isler" title="İşlere git">
+      <a className="chip ok" href="#/isler" title={t("İşlere git")}>
         <Icon icon={Check} size={15} strokeWidth={2.4} />
-        <span className="chip-label">{`${done} iş bitti`}</span>
+        <span className="chip-label">{t("{n} iş bitti", { n: done })}</span>
       </a>
     );
   // Bölge hep yerinde: içerik değişince ekran okuyucu duyursun.
@@ -58,7 +59,7 @@ export default function TopBar({ section, lan, onSearch }: Props) {
   const home = section === "araclar";
   // Araç ekranları da "Araçlar" altında sayılır (görsel olarak); `aria-current` yalnızca ana sayfada.
   const inTools = home || !!toolForRoute(section);
-  const themeLabel = theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç";
+  const themeLabel = theme === "dark" ? t("Açık temaya geç") : t("Koyu temaya geç");
   const bar = useRef<HTMLElement>(null);
 
   // Çubuk yapışkan; yüksekliği dar ekranda, yakınlaştırmada ve rozet değişince değişir.
@@ -91,11 +92,11 @@ export default function TopBar({ section, lan, onSearch }: Props) {
           <BrandMark />
           Toolia
         </a>
-        <nav aria-label="Ana menü" className="nav-tray">
+        <nav aria-label={t("Ana menü")} className="nav-tray">
           <span className={`nav-split${inTools ? " on" : ""}`}>
             <a className="nav-pill" href="#/araclar" aria-current={home ? "page" : undefined}>
               <Icon icon={LayoutGrid} size={16} />
-              Araçlar
+              {t("Araçlar")}
             </a>
             <ToolMenu section={section} />
           </span>
@@ -107,7 +108,7 @@ export default function TopBar({ section, lan, onSearch }: Props) {
             <Icon icon={Clock} size={16} />
             {/* Tek öğe: hapın `gap`'i sözcüklerin arasına girmesin. */}
             <span>
-              İşler<span className="nav-long"> ve dosyalar</span>
+              {t("İşler")}<span className="nav-long"> {t("ve dosyalar")}</span>
             </span>
           </a>
           <a
@@ -116,31 +117,31 @@ export default function TopBar({ section, lan, onSearch }: Props) {
             aria-current={section === "ayarlar" ? "page" : undefined}
           >
             <Icon icon={SlidersHorizontal} size={16} />
-            Ayarlar
+            {t("Ayarlar")}
           </a>
         </nav>
         <div className="topbar-end">
           <button
             type="button"
             className="search-btn"
-            aria-label="Araç ara (Ctrl+K)"
+            aria-label={t("Araç ara (Ctrl+K)")}
             aria-keyshortcuts="Control+K Meta+K"
             onClick={onSearch}
           >
             <Icon icon={Search} size={17} />
-            <span className="search-btn-label">Araç ara…</span>
+            <span className="search-btn-label">{t("Araç ara…")}</span>
             <kbd>Ctrl K</kbd>
           </button>
           <JobBadge section={section} />
           {lan ? (
-            <a className="chip warn" href="#/ayarlar" title="Aynı Wi-Fi'deki eşleşmiş cihazlar bağlanabilir">
+            <a className="chip warn" href="#/ayarlar" title={t("Aynı Wi-Fi'deki eşleşmiş cihazlar bağlanabilir")}>
               <Icon icon={Smartphone} size={15} />
-              <span className="chip-label">Telefon modu açık</span>
+              <span className="chip-label">{t("Telefon modu açık")}</span>
             </a>
           ) : (
-            <span className="chip offline-chip" title="Dosyalar bu bilgisayardan çıkmaz">
+            <span className="chip offline-chip" title={t("Dosyalar bu bilgisayardan çıkmaz")}>
               <Icon icon={ShieldCheck} size={15} />
-              <span className="chip-label">Çevrimdışı</span>
+              <span className="chip-label">{t("Çevrimdışı")}</span>
             </span>
           )}
           <button

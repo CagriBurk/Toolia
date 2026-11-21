@@ -10,6 +10,7 @@ import { useFiles, useJob } from "../hooks";
 import { passwords } from "../passwords";
 import { idsFrom, type Route } from "../router";
 import { ACCEPT, PAPERS } from "../tools";
+import { t } from "../i18n";
 
 // Tarayıcının doğrudan gösterebildiği biçimler (HEIC/TIFF için yalnızca ad gösterilir).
 const VIEWABLE = /\.(jpe?g|png|webp|gif|bmp|svg)$/i;
@@ -33,9 +34,9 @@ export function ImagesToPdf({ route }: { route: Route }) {
       <div className="tool-layout">
         <div className="tool-main">
           <FilesCard
-            title="Resimler"
+            title={t("Resimler")}
             count={files.length}
-            hint={files.length > 0 && "Her resim bir sayfa olur. Sırayı sürükleyerek değiştir."}
+            hint={files.length > 0 && t("Her resim bir sayfa olur. Sırayı sürükleyerek değiştir.")}
           >
             {files.length > 0 && (
               <SortableList
@@ -59,7 +60,7 @@ export function ImagesToPdf({ route }: { route: Route }) {
                       <button
                         type="button"
                         className="icon-button"
-                        aria-label={`${f.name} çıkar`}
+                        aria-label={t("{name} çıkar", { name: f.name })}
                         onPointerDown={(e) => e.stopPropagation()}
                         onClick={() => setFiles((all) => all.filter((x) => x.id !== f.id))}
                       >
@@ -74,43 +75,43 @@ export function ImagesToPdf({ route }: { route: Route }) {
               accept={ACCEPT.images}
               kind="image"
               compact={files.length > 0}
-              title={files.length ? "Resim ekle" : "Resimleri bırak (JPG, PNG, HEIC, WEBP, TIFF)"}
+              title={files.length ? t("Resim ekle") : t("Resimleri bırak (JPG, PNG, HEIC, WEBP, TIFF)")}
               onAdd={(added) => setFiles((f) => [...f, ...added])}
             />
           </FilesCard>
           <section className="card">
-            <h2>Seçenekler</h2>
+            <h2>{t("Seçenekler")}</h2>
             <div className="fields">
               <label className="field">
-                Sayfa boyutu
+                {t("Sayfa boyutu")}
                 <select value={pageSize} onChange={(e) => setPageSize(e.target.value)}>
                   {PAPERS.map((p) => (
                     <option key={p} value={p}>
                       {p}
                     </option>
                   ))}
-                  <option value="resim">Resmin kendi boyutu</option>
+                  <option value="resim">{t("Resmin kendi boyutu")}</option>
                 </select>
               </label>
               {pageSize !== "resim" && (
                 <label className="field">
-                  Yön
+                  {t("Yön")}
                   <select value={orientation} onChange={(e) => setOrientation(e.target.value)}>
-                    <option value="otomatik">Otomatik (resme göre)</option>
-                    <option value="dikey">Dikey</option>
-                    <option value="yatay">Yatay</option>
+                    <option value="otomatik">{t("Otomatik (resme göre)")}</option>
+                    <option value="dikey">{t("Dikey")}</option>
+                    <option value="yatay">{t("Yatay")}</option>
                   </select>
                 </label>
               )}
               {pageSize !== "resim" && (
                 <label className="field">
-                  Kenar boşluğu: {margin} mm
+                  {t("Kenar boşluğu: {m} mm", { m: margin })}
                   <input type="range" min={0} max={30} value={margin} onChange={(e) => setMargin(Number(e.target.value))} />
                 </label>
               )}
               <label className="field">
-                Çıktı adı
-                <input className="input" placeholder="otomatik" value={name} onChange={(e) => setName(e.target.value)} />
+                {t("Çıktı adı")}
+                <input className="input" placeholder={t("otomatik")} value={name} onChange={(e) => setName(e.target.value)} />
               </label>
             </div>
           </section>
@@ -118,10 +119,10 @@ export function ImagesToPdf({ route }: { route: Route }) {
         <aside className="tool-side">
           <ActionCard
             rows={[
-              ["Resim", filesSummary(files, "resim")],
-              ["Sayfa boyutu", pageSize === "resim" ? "Resmin kendi boyutu" : pageSize],
+              [t("Resim"), filesSummary(files, "resim")],
+              [t("Sayfa boyutu"), pageSize === "resim" ? t("Resmin kendi boyutu") : pageSize],
             ]}
-            label="PDF oluştur"
+            label={t("PDF oluştur")}
             disabled={!files.length || job.running}
             busy={job.running}
             done={job.job?.status === "bitti"}
@@ -161,35 +162,35 @@ export function PdfToImages({ route }: { route: Route }) {
       <PageHeader title="PDF → Resim" />
       <div className="tool-layout">
         <div className="tool-main">
-          <FilesCard title="Dosya">
+          <FilesCard title={t("Dosya")}>
             {file ? (
               <FileRow file={file} onRemove={() => (setFile(null), job.reset())} />
             ) : (
-              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title="PDF'i bırak" onAdd={([f]) => setFile(f)} />
+              <FilePicker accept={ACCEPT.pdf} kind="pdf" multiple={false} title={t("PDF'i bırak")} onAdd={([f]) => setFile(f)} />
             )}
           </FilesCard>
           <section className="card">
-            <h2>Seçenekler</h2>
+            <h2>{t("Seçenekler")}</h2>
             <div className="fields">
               <label className="field">
-                Çözünürlük
+                {t("Çözünürlük")}
                 <select value={dpi} onChange={(e) => setDpi(Number(e.target.value))}>
-                  <option value={72}>72 DPI (ekran, küçük)</option>
-                  <option value={150}>150 DPI (önerilen)</option>
-                  <option value={200}>200 DPI</option>
-                  <option value={300}>300 DPI (baskı kalitesi)</option>
+                  <option value={72}>{t("72 DPI (ekran, küçük)")}</option>
+                  <option value={150}>{t("150 DPI (önerilen)")}</option>
+                  <option value={200}>{t("200 DPI")}</option>
+                  <option value={300}>{t("300 DPI (baskı kalitesi)")}</option>
                 </select>
               </label>
               <label className="field">
-                Biçim
+                {t("Biçim")}
                 <select value={fmt} onChange={(e) => setFmt(e.target.value)}>
-                  <option value="png">PNG (kayıpsız)</option>
-                  <option value="jpg">JPG (küçük dosya)</option>
+                  <option value="png">{t("PNG (kayıpsız)")}</option>
+                  <option value="jpg">{t("JPG (küçük dosya)")}</option>
                 </select>
               </label>
               <label className="field">
-                Sayfalar
-                <input className="input" placeholder="hepsi (ör. 1-3, 5)" value={spec} onChange={(e) => setSpec(e.target.value)} />
+                {t("Sayfalar")}
+                <input className="input" placeholder={t("hepsi (ör. 1-3, 5)")} value={spec} onChange={(e) => setSpec(e.target.value)} />
               </label>
             </div>
           </section>
@@ -197,11 +198,11 @@ export function PdfToImages({ route }: { route: Route }) {
         <aside className="tool-side">
           <ActionCard
             rows={[
-              ["Dosya", fileSummary(file)],
-              ["Çıktı", `${fmt.toUpperCase()} · ${dpi} DPI`],
-              ["Sayfalar", spec.trim() || "hepsi"],
+              [t("Dosya"), fileSummary(file)],
+              [t("Çıktı"), `${fmt.toUpperCase()} · ${dpi} DPI`],
+              [t("Sayfalar"), spec.trim() || t("hepsi")],
             ]}
-            label="Resimlere dönüştür"
+            label={t("Resimlere dönüştür")}
             disabled={!file || job.running}
             busy={job.running}
             done={job.job?.status === "bitti"}
