@@ -1,7 +1,7 @@
 {
   "Sistem": "System",
   "Dil": "Language",
-  "Seçince arayüz yeniden yüklenir. Sistem seçiliyse Windows diline uyar.": "The interface reloads when you pick one. System follows the Windows language.",
+  "Seçince arayüz yeniden yüklenir. Sistem seçiliyse işletim sistemi diline uyar.": "The interface reloads when you pick one. System follows the operating system language.",
 
   "Dönüştür": "Convert",
   "Düzenle": "Organize",

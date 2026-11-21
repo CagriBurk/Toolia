@@ -62,6 +62,9 @@ export interface UpdateInfo {
 export interface LanInfo {
   enabled: boolean;
   urls?: string[];
+  ips?: string[];
+  selected_ip?: string | null;
+  port?: number;
   qr_svg?: string | null;
   devices?: { ip: string; paired_at: number }[];
 }
@@ -247,7 +250,7 @@ export const api = {
   health: () =>
     request<{ app: string; version: string; instance: string }>("/api/health", { cache: "no-store" }),
 
-  lan: () => request<LanInfo>("/api/lan"),
+  lan: (ip?: string) => request<LanInfo>(ip ? `/api/lan?ip=${encodeURIComponent(ip)}` : "/api/lan"),
   checkUpdate: () => request<UpdateInfo>("/api/update"),
   revokeDevices: () => request<{ revoked: number }>("/api/lan/devices", { method: "DELETE" }),
   info: (id: string) => request<PdfInfo>(`/api/files/${id}/info`),

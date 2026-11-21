@@ -244,15 +244,16 @@ function GeneralSettings({ settings, onSettings }: { settings: SettingsResponse;
   );
 }
 
-function PhoneQr() {
+function PhoneQr({ windows, port }: { windows: boolean; port: number }) {
   const [info, setInfo] = useState<LanInfo | null>(null);
+  const [selectedIp, setSelectedIp] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const refresh = useCallback(() => {
     api
-      .lan()
+      .lan(selectedIp)
       .then(setInfo)
       .catch((e: Error) => setError(e.message));
-  }, []);
+  }, [selectedIp]);
 
   // QR kod tek kullanımlık: bir cihaz eşleşince yenisi çıkar, bağlı cihaz listesi de değişir.
   useEffect(() => {
@@ -264,6 +265,10 @@ function PhoneQr() {
   if (error) return <p className="muted small">{error}</p>;
   if (!info?.enabled) return null;
   if (!info.urls?.length) return <p className="warn-line">{t("Yerel ağ adresi bulunamadı. Wi-Fi'ye bağlı mısın?")}</p>;
+  const ips = info.ips ?? [];
+  const activeIp = info.selected_ip ?? ips[0];
+  const activeUrl = (activeIp && info.urls.find((u) => u.startsWith(`http://${activeIp}:`))) || info.urls[0];
+  const activePort = info.port ?? port;
   return (
     <div className="phone-mode">
       {info.qr_svg && (
@@ -275,12 +280,29 @@ function PhoneQr() {
       )}
       <div className="phone-info">
         <p>{t("Telefonun kamerasıyla QR kodu okut ya da adresi yaz:")}</p>
-        {info.urls.map((u) => (
-          <p key={u} className="mono small break phone-url">
-            {u}
-          </p>
-        ))}
+        {ips.length > 1 && (
+          <div className="preset-row" role="group" aria-label={t("Ağ adresi seç")}>
+            {ips.map((ip) => (
+              <button
+                key={ip}
+                type="button"
+                className={`small preset mono${ip === activeIp ? " on" : ""}`}
+                aria-pressed={ip === activeIp}
+                onClick={() => setSelectedIp(ip)}
+              >
+                {ip}
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="mono small break phone-url">{activeUrl}</p>
         <p className="muted small">{t("Kod tek kullanımlık; her cihaz için yenisi çıkar.")}</p>
+        {!windows && (
+          <p className="muted small">
+            {t("Telefon bağlanamıyorsa güvenlik duvarında portu aç:")}{" "}
+            <code>sudo ufw allow {activePort}/tcp</code>
+          </p>
+        )}
         {!!info.devices?.length && (
           <>
             <p>{t("Bağlı cihazlar: {ips}", { ips: info.devices.map((d) => d.ip).join(", ") })}</p>
@@ -318,10 +340,14 @@ type Phase = "ask" | "saving" | "restarting" | "failed";
  * yeniden başlatır (telefon modu sunucunun yerel ağdan da dinlemesi demek: açılışta seçilir). */
 function PhoneModeDialog({
   enable,
+  windows,
+  port,
   onSettings,
   onClose,
 }: {
   enable: boolean;
+  windows: boolean;
+  port: number;
   onSettings: Props["onSettings"];
   onClose: () => void;
 }) {
@@ -393,7 +419,14 @@ function PhoneModeDialog({
               <li>{t("Bağlantı yerel ağda şifresizdir (HTTP): yalnızca güvendiğin Wi-Fi'de aç, işin bitince kapat.")}</li>
               <li>{t("Yalnızca QR kodu okutan cihazlar bağlanabilir; kod tek kullanımlıktır.")}</li>
               <li>
-                {t("Windows güvenlik duvarı ilk seferde izin isteyebilir: \"Özel ağlar\" için izin ver. Wi-Fi'n Windows'ta \"Ortak ağ\" olarak görünüyorsa telefon bağlanamaz; güvendiğin ağsa ağ ayarlarından \"Özel\" yap.")}
+                {windows ? (
+                  t("Windows güvenlik duvarı ilk seferde izin isteyebilir: \"Özel ağlar\" için izin ver. Wi-Fi'n Windows'ta \"Ortak ağ\" olarak görünüyorsa telefon bağlanamaz; güvendiğin ağsa ağ ayarlarından \"Özel\" yap.")
+                ) : (
+                  <>
+                    {t("Linux'ta güvenlik duvarı (ufw / firewalld) açıksa telefon bağlanamaz; portu açmak için:")}{" "}
+                    <code>sudo ufw allow {port}/tcp</code>
+                  </>
+                )}
               </li>
             </ul>
           </>
@@ -453,7 +486,15 @@ function PhoneModeDialog({
   );
 }
 
-function PhoneMode({ settings, onSettings }: { settings: SettingsResponse; onSettings: Props["onSettings"] }) {
+function PhoneMode({
+  settings,
+  windows,
+  onSettings,
+}: {
+  settings: SettingsResponse;
+  windows: boolean;
+  onSettings: Props["onSettings"];
+}) {
   const { save, busy } = useSave(onSettings);
   const [asking, setAsking] = useState<boolean | null>(null);
   const card = useRef<HTMLElement>(null);
@@ -496,9 +537,15 @@ function PhoneMode({ settings, onSettings }: { settings: SettingsResponse; onSet
       <p className="muted small">
         {t("Açıkken uygulama yerel ağdan da erişilebilir; yalnızca burada gösterilen QR kodu okutan cihazlar bağlanır. Bağlantı yerel ağda şifresizdir (HTTP): yalnızca güvendiğin Wi-Fi'de aç, işin bitince kapat. Açıp kapatınca uygulama birkaç saniyeliğine yeniden başlar.")}
       </p>
-      {running && <PhoneQr />}
+      {running && <PhoneQr windows={windows} port={settings.running.port} />}
       {asking !== null && (
-        <PhoneModeDialog enable={asking} onSettings={onSettings} onClose={() => setAsking(null)} />
+        <PhoneModeDialog
+          enable={asking}
+          windows={windows}
+          port={settings.values.port}
+          onSettings={onSettings}
+          onClose={() => setAsking(null)}
+        />
       )}
     </section>
   );
@@ -545,8 +592,17 @@ function VersionInfo({ data }: { data: EnginesResponse }) {
               <a href={info.url} target="_blank" rel="noreferrer">
                 {t("Sürüm sayfası")}
               </a>
-              {t(": yeni paketi indir, içindeki")} <strong>{t("Kur")}</strong>
-              {t("'a çift tıkla (belgelerin ve ayarların korunur).")}
+              {data.windows ? (
+                <>
+                  {t(": yeni paketi indir, içindeki")} <strong>{t("Kur")}</strong>
+                  {t("'a çift tıkla (belgelerin ve ayarların korunur).")}
+                </>
+              ) : (
+                <>
+                  {t(": yeni paketi indir, ayıkla ve")} <code>./kur.sh</code>{" "}
+                  {t("komutunu çalıştır (belgelerin ve ayarların korunur).")}
+                </>
+              )}
             </>
           )}
         </p>
@@ -583,7 +639,7 @@ export function EngineList({ data, onRefresh }: { data: EnginesResponse; onRefre
             {!e.available && e.key === "libreoffice" && data.windows && (
               <InstallLibreOffice onInstalled={onRefresh} />
             )}
-            {!e.available && e.install_hint && (
+            {!e.ok && e.install_hint && (
               <p className="engine-hint">
                 {t("Elle kurulum:")} <code>{e.install_hint}</code>
               </p>
@@ -646,7 +702,7 @@ function LanguageSetting() {
     <div className="setting-row">
       <div className="setting-label">
         <span className="setting-title">{t("Dil")}</span>
-        <p className="muted small">{t("Seçince arayüz yeniden yüklenir. Sistem seçiliyse Windows diline uyar.")}</p>
+        <p className="muted small">{t("Seçince arayüz yeniden yüklenir. Sistem seçiliyse işletim sistemi diline uyar.")}</p>
       </div>
       <div className="setting-control">
         <div className="segmented seg-track" role="group" aria-label={t("Dil")}>
@@ -679,7 +735,7 @@ function AppearanceSetting() {
         <div className="setting-label">
           <span className="setting-title">{t("Arayüz teması")}</span>
           <p className="muted small">
-            {t("Sistem seçiliyse Windows/tarayıcı tercihini izler; bu tarayıcıda saklanır.")}
+            {t("Sistem seçiliyse sistem/tarayıcı tercihini izler; bu tarayıcıda saklanır.")}
           </p>
         </div>
         <div className="setting-control">
@@ -715,7 +771,7 @@ export default function Settings({ data, refreshing, onRefresh, settings, onSett
       {settings && <RestartLine settings={settings} />}
       {settings && <GeneralSettings key={settings.config_file} settings={settings} onSettings={onSettings} />}
       <AppearanceSetting />
-      {settings && <PhoneMode settings={settings} onSettings={onSettings} />}
+      {settings && <PhoneMode settings={settings} windows={data?.windows ?? true} onSettings={onSettings} />}
 
       <section className="card settings-card" aria-labelledby="motorlar-baslik">
         <div className="section-head">

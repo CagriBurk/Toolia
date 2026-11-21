@@ -201,11 +201,17 @@ def _print_lan(port: int, pair_token: str) -> None:
     with contextlib.suppress(UnicodeEncodeError):
         typer.echo(qr_text(link))
     typer.echo(f"ya da adresi yaz: {link}")
+    for extra in ips[1:]:
+        typer.echo(f"diğer adres: http://{extra}:{port}/?t={pair_token}")
+    firewall = (
+        "Windows güvenlik duvarı ilk seferde izin isteyebilir."
+        if engines.on_windows()
+        else f"Telefon bağlanamazsa güvenlik duvarında portu aç: sudo ufw allow {port}/tcp"
+    )
     typer.secho("Bu kod tek kullanımlık ve 10 dakika geçerli; sonraki cihazlar için Ayarlar "
                 "sayfasında yenisi çıkar. Telefonun bağlantısı 8 saat sonra kapanır. "
                 "Bağlantı yerel ağda şifresizdir: yalnızca güvendiğin Wi-Fi'de kullan, işin "
-                "bitince Ayarlar'dan telefon modunu kapat. Windows güvenlik duvarı ilk seferde "
-                "izin isteyebilir.", fg="yellow")
+                f"bitince Ayarlar'dan telefon modunu kapat. {firewall}", fg="yellow")
 
 
 def _port_in_use(host: str, port: int) -> bool:
@@ -236,6 +242,7 @@ def motorlar(config: ConfigOpt = None) -> None:
             typer.echo(f"      -> {p}")
         if not e.available:
             any_missing = True
+        if not e.ok and e.install_hint:
             typer.echo(f"      -> kurulum: {e.install_hint}")
     raise typer.Exit(1 if any_missing else 0)
 

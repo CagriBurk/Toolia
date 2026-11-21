@@ -25,6 +25,72 @@ def test_lan_ips_are_private():
         assert re.match(r"^(10|172|192)\.", ip)
 
 
+def test_lan_ips_filters_virtual_and_down_interfaces(monkeypatch):
+    import socket
+    from types import SimpleNamespace
+
+    def addr(ip: str):
+        return SimpleNamespace(family=socket.AF_INET, address=ip)
+
+    def stat(up: bool):
+        return SimpleNamespace(isup=up)
+
+    monkeypatch.setattr(lan, "_default_route_ip", lambda: "10.8.0.2")  # VPN varsayılan rota
+    monkeypatch.setattr(lan.psutil, "net_if_stats", lambda: {
+        "docker0": stat(True),
+        "virbr0": stat(True),
+        "tun0": stat(True),
+        "eth0": stat(False),
+        "wlp2s0": stat(True),
+        "enp3s0": stat(True),
+    })
+    monkeypatch.setattr(lan.psutil, "net_if_addrs", lambda: {
+        "docker0": [addr("172.17.0.1")],
+        "virbr0": [addr("192.168.122.1")],
+        "tun0": [addr("10.8.0.2")],
+        "eth0": [addr("192.168.1.99")],
+        "wlp2s0": [addr("192.168.1.25")],
+        "enp3s0": [addr("192.168.1.30")],
+    })
+    ips = lan.lan_ips()
+    assert ips == ["192.168.1.30", "192.168.1.25"]
+
+    # Fiziksel arayüz varsayılan rotaysa kesin ilk sırada.
+    monkeypatch.setattr(lan, "_default_route_ip", lambda: "192.168.1.25")
+    assert lan.lan_ips() == ["192.168.1.25", "192.168.1.30"]
+
+
+def test_lan_ips_falls_back_when_only_virtual(monkeypatch):
+    import socket
+    from types import SimpleNamespace
+
+    def addr(ip: str):
+        return SimpleNamespace(family=socket.AF_INET, address=ip)
+
+    monkeypatch.setattr(lan, "_default_route_ip", lambda: None)
+    monkeypatch.setattr(lan.psutil, "net_if_stats", lambda: {"tun0": SimpleNamespace(isup=True)})
+    monkeypatch.setattr(lan.psutil, "net_if_addrs", lambda: {"tun0": [addr("10.8.0.2")]})
+    assert lan.lan_ips() == ["10.8.0.2"]
+
+
+def test_lan_endpoint_supports_ip_selection(settings: Settings, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(lan, "lan_ips", lambda: ["192.168.1.10", "192.168.1.20"])
+    monkeypatch.setattr(engines, "detect_all", lambda _s: [])
+    settings.lan = True
+    app = app_module.create_app(settings, start_background=False)
+    with TestClient(app, client=("127.0.0.1", 5000)) as local:
+        local.get("/api/session")
+        first = local.get("/api/lan").json()
+        assert first["ips"] == ["192.168.1.10", "192.168.1.20"]
+        assert first["selected_ip"] == "192.168.1.10"
+        second = local.get("/api/lan?ip=192.168.1.20").json()
+        assert second["selected_ip"] == "192.168.1.20"
+        assert second["qr_svg"] != first["qr_svg"]
+        # Bilinmeyen IP yoksayılır, ilk adrese düşer.
+        bad = local.get("/api/lan?ip=8.8.8.8").json()
+        assert bad["selected_ip"] == "192.168.1.10"
+
+
 def test_qr_svg():
     assert lan.qr_svg("http://192.168.1.10:8790/?t=x").startswith("<svg")
 
