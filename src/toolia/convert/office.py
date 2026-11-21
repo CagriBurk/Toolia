@@ -26,6 +26,7 @@ from __future__ import annotations
 import contextlib
 import re
 import shutil
+import subprocess
 import tempfile
 import zipfile
 from dataclasses import dataclass, field
@@ -33,7 +34,7 @@ from pathlib import Path
 
 import pymupdf
 
-from toolia import proc
+from toolia import engines, proc
 from toolia.errors import TooliaError
 from toolia.formats import OFFICE_CONVERT_FAMILIES, OFFICE_EXTS
 
@@ -55,8 +56,11 @@ MAX_RATIO = 100
 
 class LibreOfficeNotFoundError(TooliaError):
     def __init__(self, purpose: str = "Office → PDF") -> None:
-        super().__init__(f"LibreOffice bulunamadı; {purpose} için gerekli. Kurmak için: "
-                         "winget install TheDocumentFoundation.LibreOffice")
+        hint = engines._hint(
+            "winget install TheDocumentFoundation.LibreOffice",
+            "sudo apt install libreoffice-writer libreoffice-calc libreoffice-impress",
+        )
+        super().__init__(f"LibreOffice bulunamadı; {purpose} için gerekli. Kurmak için: {hint}")
 
 
 class OfficeConversionError(TooliaError):
@@ -132,7 +136,9 @@ def _run_soffice(soffice: str, inputs: list[Path], outdir: Path, export: str,
     """Girdileri tek çağrıda çevirir (taze, sertleştirilmiş profil). LibreOffice'in çıktı
     metnini döndürür. `infilter` verilirse bütün girdiler o içe aktarma filtresiyle açılır
     (CSV okuma ayarları)."""
-    with tempfile.TemporaryDirectory(prefix="pa-lo-profil-", ignore_cleanup_errors=True) as profile:
+    with tempfile.TemporaryDirectory(
+        prefix="pa-lo-profil-", dir=engines.snap_temp_base(soffice), ignore_cleanup_errors=True
+    ) as profile:
         harden_profile(Path(profile))
         uri = Path(profile).resolve().as_uri()
         args = [soffice, f"-env:UserInstallation={uri}", "--headless", "--norestore",
@@ -218,7 +224,7 @@ def convert_office(
     """Tek bir belgeyi PDF'e çevirir."""
     item = OfficeItem(Path(source), Path(output), display_name or Path(source).name)
     ext = _validate(soffice, item)
-    with tempfile.TemporaryDirectory(prefix="pa-lo-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="pa-lo-", dir=engines.snap_temp_base(soffice)) as tmp:
         work = Path(tmp)
         src = work / f"girdi{ext}"
         try:
@@ -271,7 +277,9 @@ def convert_office_many(
 
     done = 0
     for indices in groups.values():
-        with tempfile.TemporaryDirectory(prefix="pa-lo-") as tmp:
+        with tempfile.TemporaryDirectory(
+            prefix="pa-lo-", dir=engines.snap_temp_base(soffice)
+        ) as tmp:
             work = Path(tmp)
             inputs = []
             for i in indices:
@@ -515,7 +523,7 @@ def _format_one(item: OfficeItem, *, soffice: str, target: str,
                 timeout: float = DEFAULT_TIMEOUT_S) -> list[str]:
     """Tek belgeyi tek başına çevirir; çıkmazsa LibreOffice'in mesajıyla hata verir."""
     ext = item.source.suffix.lower()
-    with tempfile.TemporaryDirectory(prefix="pa-lo-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="pa-lo-", dir=engines.snap_temp_base(soffice)) as tmp:
         work = Path(tmp)
         src = work / f"girdi{ext}"
         outdir = work / "cikti"  # aynı uzantıya kaydetme girdinin üzerine yazmasın
@@ -574,7 +582,9 @@ def convert_office_format(
         groups.setdefault(infilter, []).append(i)
 
     for infilter, indices in groups.items():
-        with tempfile.TemporaryDirectory(prefix="pa-lo-") as tmp:
+        with tempfile.TemporaryDirectory(
+            prefix="pa-lo-", dir=engines.snap_temp_base(soffice)
+        ) as tmp:
             work = Path(tmp)
             outdir = work / "cikti"
             outdir.mkdir()
@@ -680,26 +690,52 @@ _installed_cache: set[str] | None = None
 
 
 def installed_fonts() -> set[str] | None:
-    """Windows'ta kurulu font aileleri (kayıt defterinden). Bilinmiyorsa None."""
+    """Bilgisayarda kurulu font aileleri (Windows: kayıt defteri; Linux: fontconfig `fc-list`).
+    Bilinmiyorsa None."""
     global _installed_cache
     if _installed_cache is not None:
         return _installed_cache
-    try:
-        import winreg
-    except ImportError:
-        return None
-    key_path = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
-    names: set[str] = set()
-    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+    if engines.on_windows():
         try:
-            with winreg.OpenKey(hive, key_path) as key:
-                for i in range(winreg.QueryInfoKey(key)[1]):
-                    value = winreg.EnumValue(key, i)[0]
-                    for part in re.sub(r"\(.*?\)", "", value).split("&"):
-                        if part.strip():
-                            names.add(_family(part))
-        except OSError:
-            continue
+            import winreg
+        except ImportError:
+            return None
+        key_path = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+        names: set[str] = set()
+        for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+            try:
+                with winreg.OpenKey(hive, key_path) as key:
+                    for i in range(winreg.QueryInfoKey(key)[1]):
+                        value = winreg.EnumValue(key, i)[0]
+                        for part in re.sub(r"\(.*?\)", "", value).split("&"):
+                            if part.strip():
+                                names.add(_family(part))
+            except OSError:
+                continue
+        _installed_cache = names
+        return names
+    return _installed_fonts_fontconfig()
+
+
+def _installed_fonts_fontconfig() -> set[str] | None:
+    global _installed_cache
+    fc_list = engines.find_on_path("fc-list")
+    if not fc_list:
+        return None
+    try:
+        r = subprocess.run(
+            [str(fc_list), ":", "family"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if r.returncode != 0:
+        return None
+    names: set[str] = set()
+    for line in r.stdout.splitlines():
+        for part in line.split(","):
+            if part.strip():
+                names.add(_family(part))
     _installed_cache = names
     return names
 

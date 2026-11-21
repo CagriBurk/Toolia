@@ -13,6 +13,12 @@ export const FONT_CSS: Record<string, string> = {
   times: '"Times New Roman"',
   georgia: "Georgia",
   consolas: "Consolas",
+  "liberation-sans": '"Liberation Sans"',
+  "liberation-serif": '"Liberation Serif"',
+  "liberation-mono": '"Liberation Mono"',
+  "dejavu-sans": '"DejaVu Sans"',
+  "dejavu-serif": '"DejaVu Serif"',
+  "dejavu-mono": '"DejaVu Sans Mono"',
 };
 
 export const DEFAULT_FONT = "noto-sans";
