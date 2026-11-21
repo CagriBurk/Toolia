@@ -66,7 +66,8 @@ def test_requested_fonts_on_non_zip(tmp_path):
 
 def test_missing_libreoffice_is_clear(tmp_path):
     src = fx.docx(tmp_path / "a.docx", ["x"])
-    with pytest.raises(office.LibreOfficeNotFoundError, match="winget"):
+    expected = "winget" if office.engines.on_windows() else "apt install"
+    with pytest.raises(office.LibreOfficeNotFoundError, match=expected):
         office.convert_office(src, tmp_path / "a.pdf", soffice=None)
 
 
