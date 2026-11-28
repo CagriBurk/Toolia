@@ -47,6 +47,7 @@ const JOB_TOOL: Record<string, string> = {
   layout: "yazdirma",
   md_to_pdf: "md",
   office_to_pdf: "office",
+  tex_to_pdf: "latex",
   images_to_pdf: "resimden",
   pdf_to_images: "resme",
   pdf_to_word: "word",

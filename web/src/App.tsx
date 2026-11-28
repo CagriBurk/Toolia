@@ -127,7 +127,7 @@ export default function App() {
   let content;
   if (!ready) content = null;
   else if (showWelcome && section === "araclar")
-    content = <Welcome engines={engines} onRefresh={() => void loadEngines(true)} onDone={finishWelcome} />;
+    content = <Welcome engines={engines} local={settings?.local} onRefresh={() => void loadEngines(true)} onDone={finishWelcome} />;
   else if (section === "duzenle")
     content = (
       <Suspense fallback={<p className="muted">{t("Düzenleyici yükleniyor…")}</p>}>
@@ -165,15 +165,15 @@ export default function App() {
     );
   else if (section === "md") content = <Markdown route={route} engines={engines} />;
   else if (section === "office")
-    content = <Office route={route} engines={engines} onEnginesChanged={() => void loadEngines(true)} />;
+    content = <Office route={route} engines={engines} local={settings?.local} onEnginesChanged={() => void loadEngines(true)} />;
   else if (section === "latex")
-    content = <Latex route={route} engines={engines} onEnginesChanged={() => void loadEngines(true)} />;
+    content = <Latex route={route} engines={engines} local={settings?.local} onEnginesChanged={() => void loadEngines(true)} />;
   else if (section === "resimden") content = <ImagesToPdf route={route} />;
   else if (section === "resme") content = <PdfToImages route={route} />;
   else if (section === "word") content = <PdfToWord route={route} />;
   else if (section === "excel") content = <PdfToExcel route={route} />;
   else if (section === "donustur")
-    content = <Convert route={route} engines={engines} onEnginesChanged={() => void loadEngines(true)} />;
+    content = <Convert route={route} engines={engines} local={settings?.local} onEnginesChanged={() => void loadEngines(true)} />;
   else if (section === "isler") content = <Jobs />;
   else if (section === "ayarlar")
     content = (

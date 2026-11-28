@@ -611,7 +611,8 @@ function VersionInfo({ data }: { data: EnginesResponse }) {
   );
 }
 
-export function EngineList({ data, onRefresh }: { data: EnginesResponse; onRefresh: () => void }) {
+/** Motorların durumu. Kurulum düğmeleri yalnız bilgisayarın kendisinden (`local`); sunucu telefondan kurulumu reddeder. */
+export function EngineList({ data, local, onRefresh }: { data: EnginesResponse; local?: boolean; onRefresh: () => void }) {
   return (
     <div className="engine-list">
       {data.engines.map((e) => {
@@ -636,10 +637,10 @@ export function EngineList({ data, onRefresh }: { data: EnginesResponse; onRefre
                 {p}
               </p>
             ))}
-            {!e.available && e.key === "libreoffice" && data.windows && (
+            {local && !e.available && e.key === "libreoffice" && data.windows && (
               <InstallLibreOffice onInstalled={onRefresh} />
             )}
-            {!e.available && e.key === "latex" && data.windows && <InstallEngine engine="miktex" onInstalled={onRefresh} />}
+            {local && !e.available && e.key === "latex" && data.windows && <InstallEngine engine="miktex" onInstalled={onRefresh} />}
             {!e.ok && e.install_hint && (
               <p className="engine-hint">
                 {t("Elle kurulum:")} <code>{e.install_hint}</code>
@@ -782,7 +783,7 @@ export default function Settings({ data, refreshing, onRefresh, settings, onSett
             {refreshing ? t("Taranıyor…") : t("Yeniden tara")}
           </button>
         </div>
-        {!data ? <p className="muted">{t("Yükleniyor…")}</p> : <EngineList data={data} onRefresh={onRefresh} />}
+        {!data ? <p className="muted">{t("Yükleniyor…")}</p> : <EngineList data={data} local={settings?.local} onRefresh={onRefresh} />}
       </section>
 
       {data && <VersionInfo data={data} />}

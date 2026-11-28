@@ -8,6 +8,8 @@ import { EngineList } from "./Settings";
 
 interface Props {
   engines: EnginesResponse | null;
+  /** Bilgisayarın kendisinden mi açıldı; motor kurulum düğmeleri yalnız o zaman. */
+  local?: boolean;
   onRefresh: () => void;
   onDone: () => void;
 }
@@ -20,7 +22,7 @@ const TOUR: readonly (readonly [LucideIcon, string, string])[] = [
 ];
 
 /** İlk açılış: motorların durumu (eksikse ne yapılacağı) ve kısa tanıtım. */
-export default function Welcome({ engines, onRefresh, onDone }: Props) {
+export default function Welcome({ engines, local, onRefresh, onDone }: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => heading.current?.focus(), []);
   const missing = engines?.engines.filter((e) => !e.ok && !e.optional) ?? [];
@@ -69,7 +71,7 @@ export default function Welcome({ engines, onRefresh, onDone }: Props) {
                 "Araçların çoğu hemen çalışır. Aşağıdakiler eksik; yalnızca yanında yazan araçlar için gerekir, istersen sonra Ayarlar'dan da kurabilirsin.",
               )}
             </p>
-            <EngineList data={{ ...engines, engines: missing }} onRefresh={onRefresh} />
+            <EngineList data={{ ...engines, engines: missing }} local={local} onRefresh={onRefresh} />
           </>
         )}
       </div>

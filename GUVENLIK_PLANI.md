@@ -262,3 +262,30 @@ Dal: `guvenlik-sertlestirme`. Arayüz yenilemesi aynı anda `arayuz-revizyon` da
   çevrilir (PDF'lerde olduğu gibi); imakeidx'in günlüğe yazdığı makeindex komutu belgeden
   geldiği için yalnız klasörsüz `-s stil.ist` ve zararsız bayraklar geçer (`-o`/`-t` ve yol
   içeren adlar atılır, `test_index_jobs_take_only_safe_makeindex_options`).
+- **LaTeX, bağımsız denetim (2026-11-28, `LATEX_DENETIM_RAPORU.md`):** Yukarıdaki notta üç
+  iddia yanlıştı; üçü de eski kodla yeniden üretildi, düzeltildi ve yeni kodla tekrarlandığında
+  olmadığı doğrulandı (`tests/test_latex.py` `test_k1_*`, `test_k2_*`, `test_k3_*`):
+  - **K1, kabuk komutu:** motorlarda `-no-shell-escape` doğruydu ama makeglossaries-lite,
+    belgenin `.aux`'a yazabildiği program adını ve seçenekleri (`\@glsmakeindexappname`,
+    `\@gls@extramakeindexopts`, `\@istfilename`) kaçışsız `os.execute`'a veriyordu: tek bir
+    .tex komut çalıştırabiliyordu. makeglossaries(-lite) artık hiç çalıştırılmıyor; sözlükler
+    `.aux`'tan sıkı ad denetimiyle okunup makeindex kabuksuz çağrılıyor.
+  - **K2, proje dışına yazma:** biber projedeki `biber.conf`'u okuyup `output_file` ile proje
+    dışına yazıyordu ("belge proje dışına yazamaz" ölçümü yalnız TeX motorlarını kapsamıştı).
+    biber `--noconf` ve komut satırında sabit `--output-file` ile çalışıyor; biber.conf için
+    uyarı veriliyor.
+  - **K3, ağ:** biber `\addbibresource[location=remote]{http://...}` kaynağını indiriyordu;
+    TeX/LuaLaTeX'in diskten okuduğu veri adrese konup dışarı gönderilebiliyordu. `.bcf`'teki
+    kaynak uzak, UNC, mutlak ya da `..` içeriyorsa biber hiç çalışmıyor; ayrıca biber'e ölü
+    vekil sunucu veriliyor.
+  - Diğer düzeltmeler: zip'te NTFS akışı (`a.tex:x`), Windows aygıt adları ve yasak karakterler,
+    ortak kota (aynı zip 500 kez verilerek 500 GB yazılabiliyordu), gerçek bayt sayımı ve
+    sıkıştırma oranı; `-`/`&`/`*` ile başlayan ve `%` içeren adlar (TeX, makeindex,
+    Ghostscript seçenek sanıyordu); eski `main.pdf`'in başarı sayılması; EPS ve cm-super
+    kurulumunun 15 dakikalık bütçeyi aşabilmesi; `install_engine` çalışanında telefon denetimi;
+    eşzamanlı derleme sınırı.
+  - **Kalan ve kabul edilen:** (1) TeX ve LuaLaTeX (`io.open`, `lfs`, `os.getenv`) diskteki
+    dosyaları okuyup PDF'e koyabilir; sonuç yalnız yerel PDF'e gider (telefon modunda kapalı).
+    (2) MiKTeX, belgenin istediği eksik paketleri CTAN aynalarından indirir
+    (`--enable-installer`); belgenin içeriği gönderilmez ama başkasından gelen bir .tex
+    kullanıcının MiKTeX'ine paket kurdurabilir. Edge'in Microsoft trafiği gibi belgelendi.

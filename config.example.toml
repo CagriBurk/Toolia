@@ -21,3 +21,6 @@
 # tesseract   = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
 # ghostscript = "C:\\Program Files\\gs\\gs10.05.1\\bin\\gswin64c.exe"
 # browser     = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+# latex: pdflatex'in yolu ya da bulunduğu klasör (MiKTeX / TeX Live; Linux'ta ör. /usr/bin).
+# xelatex, lualatex, biber, bibtex ve makeindex aynı klasörde aranır.
+# latex       = "C:\\Users\\ben\\AppData\\Local\\Programs\\MiKTeX\\miktex\\bin\\x64"

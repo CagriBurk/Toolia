@@ -16,7 +16,7 @@ The interface is available in Turkish and English; Türkçe açıklama aşağıd
   and format conversion for images (HEIC → JPG, PNG ↔ WEBP…) and Office files (DOCX ↔ ODT,
   XLSX ↔ CSV…).
 - **LaTeX → PDF:** compile an Overleaf project (.zip) or a .tex file locally with MiKTeX or
-  TeX Live, without a compile time limit; errors are shown with file and line.
+  TeX Live, free of Overleaf's compile time limit; errors are shown with file and line.
 - **Edit:** a drag-and-drop page editor (reorder, rotate, delete, insert, undo/redo, full
   keyboard support), an annotation editor (text, images, signatures, shapes) and true
   redaction that removes the underlying content, not just covers it.
@@ -83,7 +83,7 @@ Dosyalar internete çıkmaz; kayıt, reklam ya da dosya boyutu sınırı yoktur.
 - **Dönüştürme:** Markdown, Word, Excel, PowerPoint ve HTML → PDF; PDF → Word, Excel ve resim.
   Resim (HEIC → JPG, PNG ↔ WEBP) ve Office biçimleri (DOCX ↔ ODT, XLSX ↔ CSV) arasında dönüştürme.
 - **LaTeX → PDF:** Overleaf projesi (.zip) ya da .tex dosyası MiKTeX / TeX Live ile bilgisayarda,
-  süre sınırı olmadan derlenir; hatalar dosya ve satır numarasıyla gösterilir.
+  Overleaf'in süre sınırına takılmadan derlenir; hatalar dosya ve satır numarasıyla gösterilir.
 - **Düzenleme:** sürükle-bırak sayfa düzenleyici; yazı, resim ve imza ekleme; altındaki içeriği
   gerçekten silen karartma.
 - **İşleme:** birleştirme, bölme, filigran, sayfa numarası, sıkıştırma, Türkçe + İngilizce OCR,

@@ -46,7 +46,7 @@ const PDF_ROUTES = new Set([
   "donustur",
 ]);
 
-const NON_PDF_ROUTES = new Set(["md", "office", "resimden", "donustur"]);
+const NON_PDF_ROUTES = new Set(["md", "office", "resimden", "donustur", "latex"]);
 const CONVERT_PEER_ROUTES = new Set(["office", "resimden", "donustur"]);
 
 const QUICK_ACTIONS = [

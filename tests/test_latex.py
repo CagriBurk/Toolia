@@ -533,3 +533,390 @@ def test_missing_system_font_is_explained():
     log = ('./main.tex:4: Package fontspec Error: The font "Calibri" cannot be found; this may '
            "be but usually is not a fontspec bug.\n")
     assert "Yazı tipi bulunamadı: Calibri" in str(latex.parse_errors(log)[0])
+
+
+# --- 2026-11-28 bağımsız denetim (LATEX_DENETIM_RAPORU.md) regresyonları ------------------------
+
+@needs_tex
+def test_k1_glossary_aux_cannot_run_shell_commands(tmp_path: Path, tex: Path):
+    """K1: belge .aux'a makeglossaries-lite'ın kabuğa verdiği alanları yazabiliyordu. Artık
+    makeglossaries-lite hiç çalışmıyor; .aux'taki program adı ve ek seçenekler yok sayılıyor."""
+    # Eski kodla doğrulandı: bu belge makeglossaries-lite üzerinden `echo` çalıştırıp
+    # kabuk-calisti.txt yaratıyordu. \@auxout yalnız \begin{document}'ten sonra açıktır;
+    # hedef göreli (yolda ters eğik çizgi ya da Türkçe harf TeX'te bozulmasın).
+    payload = "echo x > kabuk-calisti.txt"
+    _write(tmp_path, {"main.ist": "", "main.tex": r"""\documentclass{article}
+\begin{document}
+\makeatletter
+\newwrite\glo
+\immediate\openout\glo=\jobname.glo \immediate\write\glo{x}\immediate\closeout\glo
+\immediate\write\@auxout{\string\@newglossary{main}{glg}{gls}{glo}}
+\immediate\write\@auxout{\string\@istfilename{main.ist}}
+\immediate\write\@auxout{\string\@gls@extramakeindexopts{& PAYLOAD &}}
+\immediate\write\@auxout{\string\@glsmakeindexappname{PAYLOAD}}
+\makeatother
+x\end{document}
+""".replace("PAYLOAD", payload)})
+    r = latex.compile_project(tmp_path, tmp_path / "main.tex", tmp_path / "out.pdf", tex=tex)
+    assert r.output.is_file()
+    assert not list(tmp_path.rglob("kabuk-calisti*"))
+
+
+def test_k1_glossary_jobs_ignore_program_name_and_reject_unsafe_names(tmp_path: Path):
+    main = tmp_path / "main.tex"
+    (tmp_path / "main.glo").write_text("x")
+    (tmp_path / "main.syg").write_text("x")
+    (tmp_path / "main.ist").write_text("")
+    (tmp_path / "main.aux").write_text(
+        r"\@newglossary{main}{glg}{gls}{glo}" "\n"
+        r"\@newglossary{sym}{slg}{sls}{syg}" "\n"
+        r"\@newglossary{kotu}{../x}{-o}{glo}" "\n"
+        r"\@glsmakeindexappname{calc.exe}" "\n"
+        r"\@gls@extramakeindexopts{-o ../disari.ind}" "\n"
+        r"\@istfilename{main.ist}" "\n", encoding="utf-8")
+    jobs, notes = latex._glossary_jobs(main)
+    assert jobs == [["-s", "main.ist", "-t", "main.glg", "-o", "main.gls", "main.glo"],
+                    ["-s", "main.ist", "-t", "main.slg", "-o", "main.sls", "main.syg"]]
+    assert any("güvenli değil" in n for n in notes)
+    (tmp_path / "main.aux").write_text(r"\@newglossary{main}{glg}{gls}{glo}\@istfilename{-x.ist}")
+    assert latex._glossary_jobs(main)[0] == []
+
+
+@needs_tex
+def test_d4_custom_glossary_type_with_nomain(tmp_path: Path, tex: Path):
+    _write(tmp_path, {"main.tex": r"""\documentclass{article}
+\usepackage[nomain]{glossaries}
+\newglossary[slg]{symbols}{sls}{slo}{Semboller}
+\makeglossaries
+\newglossaryentry{pi}{type=symbols,name={$\pi$},description={pi sayisi SEMBOLACIKLAMA}}
+\begin{document}\gls{pi}.\printglossary[type=symbols]\end{document}
+"""})
+    r = latex.compile_project(tmp_path, tmp_path / "main.tex", tmp_path / "out.pdf", tex=tex)
+    assert "SEMBOLACIKLAMA" in _text(r.output)
+
+
+@needs_tex
+def test_k2_biber_conf_cannot_write_outside_project(tmp_path: Path, tex: Path):
+    """K2: biber çalışma klasöründeki biber.conf'u okuyup çıktıyı proje dışına yazabiliyordu."""
+    proj = tmp_path / "proje"
+    outside = tmp_path / "disari-biber.txt"
+    _write(proj, {
+        "main.tex": "\\documentclass{article}\\usepackage[backend=biber]{biblatex}"
+                    "\\addbibresource{k.bib}\\begin{document}\\cite{knuth}\\printbibliography"
+                    "\\end{document}",
+        "k.bib": "@book{knuth, author={Donald Knuth}, title={The TeXbook}, year={1984}}",
+        "biber.conf": f"<config><output_file>{outside.as_posix()}</output_file></config>",
+    })
+    r = latex.compile_project(proj, proj / "main.tex", tmp_path / "out.pdf", tex=tex)
+    assert not outside.exists()
+    assert "TeXbook" in _text(r.output)  # kaynakça yine de projede doğru üretildi
+    assert any("biber.conf" in w for w in r.warnings)
+
+
+@needs_tex
+def test_k3_remote_bib_source_is_never_fetched(tmp_path: Path, tex: Path):
+    """K3: biber uzak kaynağı indiriyordu; belge diskten okuduğunu adrese koyup dışarı
+    gönderebilirdi. Uzak kaynak görülünce biber hiç çalışmamalı."""
+    import http.server
+    import threading
+
+    hits: list[str] = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            hits.append(self.path)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"@book{x, title={T}, year={2000}}")
+
+        def log_message(self, *a):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_port}/leak?secret=from_tex"
+    try:
+        _write(tmp_path, {"main.tex": "\\documentclass{article}\\usepackage[backend=biber]"
+                          "{biblatex}\\addbibresource[location=remote]{" + url + "}"
+                          "\\begin{document}\\cite{x}\\printbibliography\\end{document}"})
+        r = latex.compile_project(tmp_path, tmp_path / "main.tex", tmp_path / "out.pdf",
+                                  tex=tex)
+    finally:
+        server.shutdown()
+    assert hits == []
+    assert any("proje dışını gösteriyor" in w for w in r.warnings)
+
+
+@pytest.mark.parametrize(("source", "bad"), [
+    ("refs.bib", False), ("kaynak/refs.bib", False), ("http://x/y.bib", True),
+    ("https://x/y.bib", True), ("ftp://x", True), ("//sunucu/pay/a.bib", True),
+    ("\\\\sunucu\\pay\\a.bib", True), ("C:/gizli.bib", True), ("/etc/passwd", True),
+    ("../disari.bib", True), ("a/../../b.bib", True), ("file:///c:/x.bib", True),
+    ("&#104;ttp://x/y.bib", True),
+])
+def test_k3_bcf_source_classification(tmp_path: Path, source: str, bad: bool):
+    bcf = tmp_path / "main.bcf"
+    bcf.write_text('<bcf:controlfile><bcf:bibdata section="0"><bcf:datasource type="file" '
+                   f'datatype="bibtex" glob="false">{source}</bcf:datasource></bcf:bibdata>'
+                   "</bcf:controlfile>", encoding="utf-8")
+    assert bool(latex.unsafe_bib_sources(bcf)) is bad
+
+
+def _zip_raw(path: Path, entries: list[tuple[str, bytes]], **kw) -> Path:
+    with zipfile.ZipFile(path, "w", **kw) as zf:
+        for name, data in entries:
+            zf.writestr(zipfile.ZipInfo(name), data)
+    return path
+
+
+@pytest.mark.parametrize("bad", ["sub/a.tex:gizli", "NUL", "sub/con.tex", "a?.tex", "a<b.tex",
+                                 "klasor./a.tex", "a.tex ", "sub/../../x.tex", "C:x.tex"])
+def test_y2_zip_rejects_ads_reserved_and_forbidden_names(tmp_path: Path, bad: str):
+    z = _zip_raw(tmp_path / "p.zip", [("main.tex", b"x"), (bad, b"gizli")])
+    dest = tmp_path / "proje"
+    dest.mkdir()
+    with pytest.raises(TooliaError, match="güvensiz"):
+        latex.extract_project(z, dest)
+
+
+def test_y2_backslash_directory_entry_and_file_dir_conflict(tmp_path: Path):
+    z = _zip_raw(tmp_path / "w.zip", [("sub\\", b""), ("sub\\main.tex", b"x")])
+    dest = tmp_path / "a"
+    dest.mkdir()
+    latex.extract_project(z, dest)
+    assert (dest / "sub" / "main.tex").read_bytes() == b"x"
+    z2 = _zip_raw(tmp_path / "c.zip", [("sub", b"dosya"), ("sub/main.tex", b"x")])
+    dest2 = tmp_path / "b"
+    dest2.mkdir()
+    with pytest.raises(TooliaError, match="hem dosya hem klasör"):
+        latex.extract_project(z2, dest2)
+
+
+def test_y2_encrypted_and_corrupt_zips_give_clear_errors(tmp_path: Path):
+    # Şifreli: "şifreli" bayrağı (0x1) elle konur.
+    # writestr bayrağı sıfırladığı için yerel başlıkta (+6) ve merkezi dizinde (+8) elle konur.
+    enc = tmp_path / "enc.zip"
+    with zipfile.ZipFile(enc, "w") as zf:
+        zf.writestr("main.tex", b"x" * 20)
+    raw = bytearray(enc.read_bytes())
+    raw[raw.find(b"PK\x03\x04") + 6] |= 0x1
+    raw[raw.find(b"PK\x01\x02") + 8] |= 0x1
+    enc.write_bytes(bytes(raw))
+    with pytest.raises(TooliaError, match="şifreli"):
+        latex.extract_project(enc, tmp_path)
+    # Bozuk CRC: içerik baytı değiştirilir.
+    bad = tmp_path / "bad.zip"
+    with zipfile.ZipFile(bad, "w", zipfile.ZIP_STORED) as zf:
+        zf.writestr("main.tex", b"ABCDEFGH" * 10)
+    raw = bytearray(bad.read_bytes())
+    i = raw.find(b"ABCDEFGH")
+    raw[i] ^= 0xFF
+    bad.write_bytes(bytes(raw))
+    out = tmp_path / "x"
+    out.mkdir()
+    with pytest.raises(TooliaError, match="bozuk"):
+        latex.extract_project(bad, out)
+
+
+def test_y2_quota_is_shared_between_zips(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(latex, "MAX_ZIP_BYTES", 1500)
+    z = _zip(tmp_path / "p.zip", {"main.tex": "x" * 1000})
+    quota = latex.ZipQuota()
+    (tmp_path / "a").mkdir()
+    latex.extract_project(z, tmp_path / "a", quota=quota)
+    (tmp_path / "b").mkdir()
+    with pytest.raises(TooliaError, match="1 GB"):
+        latex.extract_project(z, tmp_path / "b", quota=quota)
+
+
+def test_y2_compression_bomb_is_rejected_before_writing(tmp_path: Path):
+    bomb = tmp_path / "bomb.zip"
+    with zipfile.ZipFile(bomb, "w", zipfile.ZIP_DEFLATED) as zf, \
+            zf.open("main.tex", "w", force_zip64=True) as f:
+        chunk = b"\0" * (1024 * 1024)
+        for _ in range(120):
+            f.write(chunk)
+    dest = tmp_path / "proje"
+    dest.mkdir()
+    with pytest.raises(TooliaError, match="sıkıştırma bombası"):
+        latex.extract_project(bomb, dest)
+    assert not (dest / "main.tex").exists()
+
+
+@needs_tex
+def test_y2_job_deduplicates_files_and_rejects_dir_collision(
+        settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from toolia.jobs import workers
+    from toolia.jobs.models import TexToPdfRequest
+    from toolia.storage import FileStore
+
+    store = FileStore(settings.files_dir, settings.max_upload_mb)
+    z = store.add_file(_zip(tmp_path / "p.zip", {"sekil/a.png": "x", "main.tex": DOC}), "p.zip")
+    clash = store.add_file(_write_one(tmp_path / "sekil", "x"), "sekil")
+    seen = []
+    real = latex.extract_project
+    monkeypatch.setattr(latex, "extract_project",
+                        lambda *a, **kw: (seen.append(a[0]), real(*a, **kw))[1])
+    req = TexToPdfRequest(type="tex_to_pdf", files=[z.id, z.id, z.id, clash.id])
+    work = tmp_path / "is"
+    work.mkdir()
+    with pytest.raises(TooliaError, match="aynı adla bir klasör"):
+        workers.tex_to_pdf(store, settings, req, lambda *_: None, work, "is")
+    assert len(seen) == 1
+
+
+def _write_one(path: Path, text: str) -> Path:
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+@needs_tex
+def test_y3_stale_pdf_is_not_returned_after_fatal_error(tmp_path: Path, tex: Path):
+    """Y3: zip'le gelen ya da önceki derlemeden kalan main.pdf, ölümcül hatada başarı
+    sayılıyordu. Artık hata verilir; yerinde derlemede eski PDF geri konur."""
+    _write(tmp_path, {"main.tex": "\\documentclass{article}\\usepackage{boyle-bir-paket-yok}"
+                                  "\\begin{document}x\\end{document}"})
+    doc = pymupdf.open()
+    doc.new_page()
+    doc.save(tmp_path / "main.pdf")  # geçerli ama eski bir PDF
+    before = (tmp_path / "main.pdf").read_bytes()
+    with pytest.raises(TooliaError, match="Eksik paket"):
+        latex.compile_project(tmp_path, tmp_path / "main.tex", tmp_path / "main.pdf", tex=tex)
+    assert (tmp_path / "main.pdf").read_bytes() == before
+    assert not (tmp_path / "main.pdf.toolia-eski").exists()
+
+
+@pytest.mark.parametrize("name", ["-output-directory=x.tex", "&pdflatex.tex", "*a.tex",
+                                  "yuzde%d.tex"])
+def test_y4_option_like_main_names_are_rejected(tmp_path: Path, name: str):
+    # Ad, dosya okunmadan önce denetlenir (Windows `*` içeren adı zaten yazamaz).
+    with pytest.raises(TooliaError, match="seçenek gibi"):
+        latex.compile_project(tmp_path, tmp_path / name, tmp_path / "o.pdf",
+                              tex=tmp_path / "pdflatex.exe")
+
+
+def test_y4_safe_name_rejects_leading_dash_and_dot():
+    for bad in ("-o.idx", "-s.ist", ".gizli.ist", "a/b.idx", "a b.idx"):
+        assert not latex._SAFE_NAME.match(bad), bad
+    for good in ("main.idx", "kisiler.idx", "_x-1.ist"):
+        assert latex._SAFE_NAME.match(good), good
+
+
+@needs_tex
+@pytest.mark.skipif(GS is None, reason="Ghostscript yok")
+@pytest.mark.parametrize("name", ["-h", "@liste", "yuzde%d"])
+def test_y4_eps_names_are_not_read_as_options(tmp_path: Path, tex: Path, name: str):
+    (tmp_path / f"{name}.eps").write_text(
+        "%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 100 60\n"
+        "/Helvetica findfont 12 scalefont setfont 20 20 moveto (EPSYAZI) show\n"
+        "showpage\n%%EOF\n", encoding="ascii")
+    runner = latex._Runner(tex, tmp_path, lambda *_: None)
+    assert latex._convert_eps(tmp_path, GS, runner) == []
+    target = tmp_path / f"{name}-eps-converted-to.pdf"
+    assert latex._valid_pdf(target)
+    assert sorted(p.name for p in tmp_path.glob("*.pdf")) == [target.name]
+
+
+def test_o1_eps_and_cm_super_respect_the_deadline(tmp_path: Path,
+                                                  monkeypatch: pytest.MonkeyPatch):
+    (tmp_path / "a.eps").write_text("%!PS\n", encoding="ascii")
+    runner = latex._Runner(tmp_path / "pdflatex.exe", tmp_path, lambda *_: None)
+    runner.deadline = 0  # süre çoktan doldu
+    called = []
+    monkeypatch.setattr(latex.proc, "run", lambda *a, **k: called.append(a))
+    with pytest.raises(latex.proc.TimedOut):
+        latex._convert_eps(tmp_path, "gs", runner)
+    assert called == []
+    runner.miktex = True
+    monkeypatch.setattr(latex, "_CM_SUPER_CHECKED", set())
+    monkeypatch.setattr(latex, "_CM_SUPER_FAILED", {})
+    with pytest.raises(latex.proc.TimedOut):
+        latex._ensure_cm_super(runner)
+
+
+def test_o2_failed_cm_super_install_is_retried_later_not_forever_skipped(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(latex, "_CM_SUPER_CHECKED", set())
+    monkeypatch.setattr(latex, "_CM_SUPER_FAILED", {})
+    monkeypatch.setattr(latex, "has_cm_super", lambda *a, **k: False)
+    results = iter([False, True])
+    calls = []
+
+    def install(*a, **k):
+        calls.append(1)
+        return next(results)
+
+    monkeypatch.setattr(latex, "install_miktex_package", install)
+    runner = latex._Runner(_fake_miktex(tmp_path), tmp_path, lambda *_: None)
+    assert latex._ensure_cm_super(runner) == [latex.CM_SUPER_HINT]
+    assert latex._ensure_cm_super(runner) == [latex.CM_SUPER_HINT]  # bir saat içinde denenmez
+    assert len(calls) == 1
+    latex._CM_SUPER_FAILED[str(runner.tex_path)] -= latex.CM_SUPER_RETRY_S + 1
+    assert latex._ensure_cm_super(runner) == []
+    assert latex._ensure_cm_super(runner) == []
+    assert len(calls) == 2
+
+
+def test_o4_uppercase_extension_and_same_stem_subfile(tmp_path: Path):
+    _write(tmp_path, {"MAIN.TEX": DOC})
+    assert latex.find_main(tmp_path)[0].name == "MAIN.TEX"
+    other = tmp_path / "iki"
+    _write(other, {"main.tex": "\\documentclass{article}\\begin{document}\\input{sub/main}"
+                               "\\end{document}",
+                   "sub/main.tex": "\\documentclass{article}\\begin{document}x\\end{document}",
+                   "zeta.tex": DOC})
+    main, _ = latex.find_main(other)
+    assert main.relative_to(other).as_posix() == "main.tex"
+
+
+@pytest.mark.parametrize(("source", "engine"), [
+    ("\\documentclass{article}\\% \\usepackage{fontspec}", "xelatex"),
+    ("\\documentclass{article}100\\\\% \\usepackage{fontspec}", "pdflatex"),
+    ("\n" * 25 + "% !TEX program = xelatex\n" + DOC, "pdflatex"),
+])
+def test_d1_comment_and_magic_detection(source: str, engine: str):
+    assert latex.pick_engine(source) == engine
+
+
+def test_d1_fontspec_in_preamble_or_local_class(tmp_path: Path):
+    _write(tmp_path, {"main.tex": "\\documentclass{tezsinifi}\\input{preamble}"
+                                  "\\begin{document}x\\end{document}",
+                      "preamble.tex": "\\usepackage{fontspec}"})
+    main = tmp_path / "main.tex"
+    assert latex.pick_engine(latex._read(main), latex._engine_sources(main)) == "xelatex"
+    _write(tmp_path, {"preamble.tex": "", "tezsinifi.cls": "\\RequirePackage{luacode}"})
+    assert latex.pick_engine(latex._read(main), latex._engine_sources(main)) == "lualatex"
+
+
+def test_d2_unwrap_rejoins_79_char_lines():
+    long = ("./main.tex:5: Package fontspec Error: The font \"Calibri\" cannot be found; this "
+            "may be but usually is not a fontspec bug.")
+    line = long[:79]
+    log = line + "\n" + long[79:] + "\nl.5 x\n"
+    assert "Yazı tipi bulunamadı: Calibri" in str(latex.parse_errors(latex._unwrap(log))[0])
+
+
+def test_d2_babel_hint_with_class_option_and_bounded_biber_request():
+    errs = [latex.TexError("Missing number, treated as zero.")]
+    assert latex.babel_shorthand_hint(
+        [r"\documentclass[turkish]{article}\usepackage{babel}"], errs, "")
+    log = ("Package biblatex Warning: Please (re)run Biber on the file:\n(biblatex) main\n"
+           "(biblatex) and rerun LaTeX afterwards.\n" + "x\n" * 3
+           + "LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.\n"
+           + "Please (re)run Biber on the file:\n(biblatex) main\n")
+    assert latex._needs_rerun(log)
+    assert latex.parse_errors("./MAIN.TEX:3: Undefined control sequence.\n")[0].line == 3
+
+
+def test_o7_install_engine_worker_refuses_device(settings: Settings, tmp_path: Path):
+    from toolia import access
+    from toolia.jobs import workers
+    from toolia.jobs.models import InstallEngineRequest
+
+    req = InstallEngineRequest(type="install_engine", engine="miktex")
+    token = access._owner.set("cihaz-1")
+    try:
+        with pytest.raises(TooliaError, match="yalnızca bu bilgisayardan"):
+            workers.install_engine(None, settings, req, lambda *_: None, tmp_path, "is")
+    finally:
+        access._owner.reset(token)

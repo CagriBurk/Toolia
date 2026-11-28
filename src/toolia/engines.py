@@ -168,8 +168,11 @@ def find_on_path(name: str) -> Path | None:
             continue
         for ext in exts:
             candidate = Path(entry) / (name + ext)
-            if candidate.is_file() and (os.name == "nt" or os.access(candidate, os.X_OK)):
-                return candidate
+            try:  # okunamayan PATH klasörü (izin yok, bozuk ağ sürücüsü) aramayı durdurmasın
+                if candidate.is_file() and (os.name == "nt" or os.access(candidate, os.X_OK)):
+                    return candidate
+            except OSError:
+                break  # aynı klasörün diğer uzantıları da okunamaz: sonraki PATH girdisi
     return None
 
 
