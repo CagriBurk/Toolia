@@ -22,9 +22,10 @@ export const JOB_TYPE_LABEL: Record<string, string> = {
   repair: "Onarım",
   convert: "Biçim dönüştürme",
   install_engine: "Motor kurulumu",
+  tex_to_pdf: "LaTeX → PDF",
 };
 
-const ENGINE_NAME: Record<string, string> = { libreoffice: "LibreOffice" };
+const ENGINE_NAME: Record<string, string> = { libreoffice: "LibreOffice", miktex: "MiKTeX" };
 
 /** İşin ekranda görünen adı. Bilinmeyen türde (yeni sürümden kalmış kayıt) ham ad. */
 export function jobLabel(type: string, request?: Record<string, unknown>): string {

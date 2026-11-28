@@ -250,3 +250,15 @@ Dal: `guvenlik-sertlestirme`. Arayüz yenilemesi aynı anda `arayuz-revizyon` da
   doğrulanamadı" uyarısı ve Akıllı Uygulama Denetimi engeli (bkz. .exe kararı) kalkar, paketin
   kimden geldiği kanıtlanır. Maliyeti: yıllık sertifika ücreti ve kimlik doğrulama süreci
   (bireysel/şirket). Müşterilere yaygın dağıtımdan önce değerlendirilmeli.
+- **LaTeX → PDF (2026-11-28, 0.14.0 sonrası):** `.tex` bir programdır. Önlemler: kabuk komutu
+  (`\write18`) her zaman kapalı (`-no-shell-escape`; denendi, `runsystem(...)...disabled`);
+  latexmk hiç kullanılmaz, bu yüzden projedeki `latexmkrc` (Perl kodu) okunmaz; zip'te mutlak
+  yol, `..`, sürücü harfi ve bağlantı reddedilir, en çok 5000 dosya / 1 GB; 15 dakika süre
+  sınırı ve süreç ağacını öldürme. **Kalan risk:** TeX diskteki herhangi bir dosyayı okuyup
+  PDF'e koyabiliyor (MiKTeX 25.12'de `\openin` ile `C:/Windows/win.ini` okundu; MiKTeX'te
+  TeX Live'ın `openin_any` kısıtı yok). Bu yüzden derleme telefon modunda kapalı (rota + çalışan
+  iki katmanda, `test_guvenlik_lan.py`); bu bilgisayardan derlenen başkasının `.tex`'i de dosya
+  okuyabilir, KULLANIM.md'de belirtildi. Ek adımlar: EPS şekiller Ghostscript'le `-dSAFER`
+  çevrilir (PDF'lerde olduğu gibi); imakeidx'in günlüğe yazdığı makeindex komutu belgeden
+  geldiği için yalnız klasörsüz `-s stil.ist` ve zararsız bayraklar geçer (`-o`/`-t` ve yol
+  içeren adlar atılır, `test_index_jobs_take_only_safe_makeindex_options`).

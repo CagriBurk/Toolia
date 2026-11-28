@@ -23,7 +23,7 @@ const TOUR: readonly (readonly [LucideIcon, string, string])[] = [
 export default function Welcome({ engines, onRefresh, onDone }: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => heading.current?.focus(), []);
-  const missing = engines?.engines.filter((e) => !e.ok) ?? [];
+  const missing = engines?.engines.filter((e) => !e.ok && !e.optional) ?? [];
   return (
     <section className="card welcome" aria-labelledby="hosgeldin">
       <div className="welcome-head">

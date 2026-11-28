@@ -96,6 +96,7 @@ def run(manager, req, report: Report, job_id: str) -> WorkResult:
         "repair": repair,
         "convert": convert,
         "install_engine": install_engine,
+        "tex_to_pdf": tex_to_pdf,
     }[req.type]
     with tempfile.TemporaryDirectory(prefix="pa-is-") as tmp:
         try:
@@ -585,21 +586,67 @@ def repair(store, settings, req, report, tmp: Path, job_id) -> WorkResult:
     return WorkResult([_single_output(store, req, meta, out, "Onarıldı", "onarilmis", job_id)],
                       notes)
 
+def tex_to_pdf(store, settings, req, report, tmp: Path, job_id) -> WorkResult:
+    """LaTeX projesi (Overleaf .zip'i ya da ana .tex + yanındaki dosyalar) → tek PDF."""
+    from toolia.convert.latex import compile_project, extract_project, find_main
 
-WINGET_IDS = {"libreoffice": "TheDocumentFoundation.LibreOffice"}
+    if access.is_device():
+        # TeX bilgisayardaki herhangi bir dosyayı okuyup PDF'e koyabilir (convert/latex.py).
+        raise TooliaError("LaTeX derlemesi yalnızca bu bilgisayardan yapılabilir; telefon "
+                          "modunda kapalı.")
+    status = engines.detect_latex(settings)
+    if not status.ok:
+        raise TooliaError(status.problems[0] if status.problems else
+                          "LaTeX bulunamadı. Ayarlar → Motorlar'dan MiKTeX'i kur ya da: "
+                          + (status.install_hint or ""))
+    metas = [store.get(fid) for fid in req.files]
+    root = tmp / "proje"
+    root.mkdir()
+    zips = [m for m in metas if m.kind == "zip"]
+    report(0.02, "Proje hazırlanıyor")
+    for m in zips:
+        extract_project(store.path(m.id), root, display_name=m.name)
+    notes: list[str] = []
+    for m in metas:
+        if m.kind == "zip":
+            continue
+        dest = root / m.name
+        if dest.exists():
+            notes.append(f"{m.name} projede zaten vardı; yüklenen dosya kullanıldı.")
+        shutil.copyfile(store.path(m.id), dest)
+    main, found = find_main(root, req.main)
+    notes += found
+    result = compile_project(root, main, tmp / "cikti.pdf", tex=status.path,
+                             engine=req.engine, on_progress=report,
+                             ghostscript=engines.detect_ghostscript(settings).path)
+    default = (_stem(zips[0]) if len(zips) == 1 and not req.main
+               else safe_filename(main.stem, fallback="belge", max_len=STEM_MAX))
+    meta = store.add_file(result.output, _out_name(req.name, default), job_id=job_id)
+    return WorkResult([meta], notes + result.warnings)
+
+
+WINGET_IDS = {"libreoffice": "TheDocumentFoundation.LibreOffice", "miktex": "MiKTeX.MiKTeX"}
+ENGINE_LABELS = {"libreoffice": "LibreOffice", "miktex": "MiKTeX"}
+INSTALLED_NOTES = {
+    "libreoffice": "LibreOffice kuruldu. Word / Excel / PowerPoint → PDF artık kullanılabilir.",
+    "miktex": "MiKTeX kuruldu. LaTeX → PDF artık kullanılabilir; ilk derlemede eksik paketler "
+              "indirileceği için biraz uzun sürebilir.",
+}
 INSTALL_TIMEOUT_S = 45 * 60
 
 
 def install_engine(store, settings, req, report, tmp: Path, job_id) -> WorkResult:
-    """LibreOffice'i winget ile kurar (uygulamaya gömülmez: ~350 MB). Windows kurulum için izin
-    (UAC) isteyebilir. Kurulum bitince motorlar yeniden taranır."""
+    """LibreOffice'i ya da MiKTeX'i winget ile kurar (uygulamaya gömülmezler: yüzlerce MB).
+    Windows kurulum için izin (UAC) isteyebilir. Kurulum bitince motorlar yeniden taranır."""
     from toolia import proc
 
+    label = ENGINE_LABELS[req.engine]
     winget = engines.find_on_path("winget")  # çalışma klasörüne bakmaz
     if not winget:
+        site = "libreoffice.org" if req.engine == "libreoffice" else "miktex.org"
         raise TooliaError("winget bulunamadı. Microsoft Store'dan \"Uygulama Yükleyicisi\"ni "
-                             "güncelle ya da LibreOffice'i libreoffice.org'dan indirip kur.")
-    report(0.05, "LibreOffice indiriliyor ve kuruluyor (birkaç dakika; Windows izin "
+                          f"güncelle ya da {label}'i {site} adresinden indirip kur.")
+    report(0.05, f"{label} indiriliyor ve kuruluyor (birkaç dakika; Windows izin "
                  "isteyebilir)")
     try:
         done = proc.run([winget, "install", "--id", WINGET_IDS[req.engine], "--exact",
@@ -607,15 +654,23 @@ def install_engine(store, settings, req, report, tmp: Path, job_id) -> WorkResul
                          "--accept-source-agreements", "--disable-interactivity"],
                         timeout=INSTALL_TIMEOUT_S)
     except proc.TimedOut:
-        raise TooliaError("LibreOffice kurulumu 45 dakikada bitmedi; yeniden dene.") from None
+        raise TooliaError(f"{label} kurulumu 45 dakikada bitmedi; yeniden dene.") from None
     text = (done.stdout or b"").decode("utf-8", "replace") + \
         (done.stderr or b"").decode("utf-8", "replace")
     lines = [ln.strip() for ln in re.split(r"[\r\n]+", text) if ln.strip()]
     if done.returncode != 0 and not any("already installed" in ln.lower() or
                                         "zaten yüklü" in ln.lower() for ln in lines):
         detail = lines[-1] if lines else ""
-        raise TooliaError(f"LibreOffice kurulamadı (winget çıkış kodu {done.returncode})."
-                             + (f" {detail}" if detail else ""))
+        raise TooliaError(f"{label} kurulamadı (winget çıkış kodu {done.returncode})."
+                          + (f" {detail}" if detail else ""))
+    notes = [INSTALLED_NOTES[req.engine]]
+    if req.engine == "miktex":
+        from toolia.convert.latex import configure_miktex
+
+        report(0.9, "MiKTeX hazırlanıyor (eksik paket ayarı, cm-super yazı tipleri)")
+        if tex := engines.find_tex(settings.engines.latex):
+            notes += configure_miktex(tex)
+        else:
+            notes.append("MiKTeX kuruldu ama pdflatex bulunamadı; Toolia'yı yeniden başlat.")
     report(0.98, "Motorlar yeniden taranıyor")
-    return WorkResult([], ["LibreOffice kuruldu. Word / Excel / PowerPoint → PDF artık "
-                           "kullanılabilir."])
+    return WorkResult([], notes)

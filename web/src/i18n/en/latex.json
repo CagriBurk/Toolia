@@ -1,0 +1,26 @@
+{
+  "LaTeX → PDF": "LaTeX → PDF",
+  "Overleaf projesi (.zip) ya da .tex dosyası; süre sınırı yok": "Overleaf project (.zip) or .tex file; no time limit",
+  "LaTeX (.tex / Overleaf projesi) → PDF": "LaTeX (.tex / Overleaf project) → PDF",
+  "LaTeX (.tex ya da Overleaf .zip'i)": "LaTeX (.tex or Overleaf .zip)",
+  "PDF'e derlenir": "is compiled to PDF",
+
+  "{ad} kuruluyor…": "Installing {ad}…",
+  "{ad}'i kur": "Install {ad}",
+  "{ad} kurulsun mu?": "Install {ad}?",
+  "MiKTeX (ücretsiz LaTeX dağıtımı, temel kurulum yaklaşık 1 GB) internetten indirilip kurulacak. Belgelerin istediği paketler ilk derlemede ayrıca indirilir. Windows kurulum izni isteyebilir ve işlem birkaç dakika sürebilir.": "MiKTeX (a free LaTeX distribution, basic install about 1 GB) will be downloaded from the internet and installed. Packages your documents need are downloaded on the first compile. Windows may ask for permission to install, and the process can take a few minutes.",
+
+  "LaTeX (MiKTeX ya da TeX Live) bulunamadı; .tex dosyaları derlenemez.": "LaTeX (MiKTeX or TeX Live) was not found; .tex files can't be compiled.",
+  "Derlenecek bir .tex dosyası ya da proje .zip'i ekle.": "Add a .tex file or a project .zip to compile.",
+  "Overleaf'ten indirdiğin proje .zip'ini ya da .tex dosyasını (yanındaki resim ve .bib dosyalarıyla) bırak": "Drop the project .zip you downloaded from Overleaf, or a .tex file (with its images and .bib files)",
+  "Derleyici": "Compiler",
+  "Otomatik": "Automatic",
+  "Otomatik: belgedeki % !TEX program satırına, yoksa paketlere bakar (fontspec → XeLaTeX). Overleaf'te Menü → Derleyici'de ne seçiliyse onu seçebilirsin.": "Automatic: uses the document's % !TEX program line, otherwise looks at the packages (fontspec → XeLaTeX). You can pick whatever is set under Menu → Compiler in Overleaf.",
+  "Ana dosya": "Main file",
+  "otomatik (ör. main.tex)": "automatic (e.g. main.tex)",
+  "Boş bırakılırsa \\documentclass içeren dosya (öncelik main.tex) seçilir.": "If left empty, the file with \\documentclass is used (main.tex first).",
+  "Birden çok .tex var; boş bırakılırsa \\documentclass içeren dosya seçilir.": "There are several .tex files; if left empty, the one with \\documentclass is used.",
+  "Hata olsa da PDF üretilebiliyorsa üretilir ve hatalar uyarı olarak gösterilir. İlk derlemede eksik paketler indirileceği için biraz uzun sürebilir.": "If a PDF can be produced despite errors, it is, and the errors are shown as warnings. The first compile can take a while because missing packages are downloaded.",
+  "Derleniyor…": "Compiling…",
+  "PDF'e derle": "Compile to PDF"
+}

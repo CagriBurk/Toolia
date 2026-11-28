@@ -47,6 +47,9 @@ def submit(request: Request, payload: Annotated[dict, Body()]) -> dict:
     if req.type == "install_engine" and not _is_local(request):
         # Telefon modunda eşleşmiş bir cihaz bu bilgisayara program kurduramaz.
         raise TooliaError("Program kurulumu yalnızca bu bilgisayardan başlatılabilir.")
+    if req.type == "tex_to_pdf" and not _is_local(request):
+        # TeX bilgisayardaki dosyaları okuyabilir; eşleşmiş cihaz bunu kullanamaz.
+        raise TooliaError("LaTeX derlemesi yalnızca bu bilgisayardan yapılabilir.")
     return job_view(request, request.app.state.jobs.submit(req))
 
 

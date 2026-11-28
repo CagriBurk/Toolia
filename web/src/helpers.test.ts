@@ -92,7 +92,9 @@ describe("iş adları ve dosya adları", () => {
     expect(jobLabel("office_to_pdf")).toBe("Office → PDF");
     expect(jobLabel("install_engine", { engine: "libreoffice" })).toBe("LibreOffice kurulumu");
     expect(jobLabel("gelecekte_eklenen")).toBe("gelecekte_eklenen");
-    expect(Object.keys(JOB_TYPE_LABEL)).toHaveLength(19);
+    expect(Object.keys(JOB_TYPE_LABEL)).toHaveLength(20);
+    expect(jobLabel("install_engine", { engine: "miktex" })).toBe("MiKTeX kurulumu");
+    expect(jobLabel("tex_to_pdf")).toBe("LaTeX → PDF");
     expect(jobLabel("layout")).toBe("Sayfa düzeni ve yazdırma");
     expect(jobLabel("pdf_to_excel")).toBe("PDF → Excel");
   });

@@ -6,11 +6,25 @@ import Icon from "./Icon";
 import JobPanel from "./JobPanel";
 import Modal from "./Modal";
 
-/** LibreOffice uygulamaya gömülmez (~350 MB). Kullanıcı onaylarsa winget ile kurulur; Windows
- * izin (UAC) penceresi açabilir. Bitince motorlar yeniden taranır (`onInstalled`). */
-export default function InstallLibreOffice({ onInstalled }: { onInstalled: () => void }) {
+type Installable = "libreoffice" | "miktex";
+
+const INFO: Record<Installable, { name: string; body: string }> = {
+  libreoffice: {
+    name: "LibreOffice",
+    body: "LibreOffice (ücretsiz, yaklaşık 350 MB) internetten indirilip kurulacak. Windows kurulum izni isteyebilir ve işlem birkaç dakika sürebilir.",
+  },
+  miktex: {
+    name: "MiKTeX",
+    body: "MiKTeX (ücretsiz LaTeX dağıtımı, temel kurulum yaklaşık 1 GB) internetten indirilip kurulacak. Belgelerin istediği paketler ilk derlemede ayrıca indirilir. Windows kurulum izni isteyebilir ve işlem birkaç dakika sürebilir.",
+  },
+};
+
+/** LibreOffice ve MiKTeX uygulamaya gömülmez (yüzlerce MB). Kullanıcı onaylarsa winget ile
+ * kurulur; Windows izin (UAC) penceresi açabilir. Bitince motorlar yeniden taranır (`onInstalled`). */
+export function InstallEngine({ engine, onInstalled }: { engine: Installable; onInstalled: () => void }) {
   const job = useJob();
   const [confirming, setConfirming] = useState(false);
+  const { name, body } = INFO[engine];
 
   useEffect(() => {
     if (job.job?.status === "bitti") onInstalled();
@@ -19,23 +33,19 @@ export default function InstallLibreOffice({ onInstalled }: { onInstalled: () =>
 
   const start = () => {
     setConfirming(false);
-    void job.start({ type: "install_engine", engine: "libreoffice" });
+    void job.start({ type: "install_engine", engine });
   };
 
   return (
     <div className="install-engine">
       <button type="button" onClick={() => setConfirming(true)} disabled={job.running}>
         <Icon icon={job.running ? LoaderCircle : Download} className={job.running ? "spin" : undefined} />
-        {job.running ? t("LibreOffice kuruluyor…") : t("LibreOffice'i kur")}
+        {job.running ? t("{ad} kuruluyor…", { ad: name }) : t("{ad}'i kur", { ad: name })}
       </button>
       <JobPanel job={job.job} error={job.error} />
       {confirming && (
-        <Modal title={t("LibreOffice kurulsun mu?")} onClose={() => setConfirming(false)}>
-          <p>
-            {t(
-              "LibreOffice (ücretsiz, yaklaşık 350 MB) internetten indirilip kurulacak. Windows kurulum izni isteyebilir ve işlem birkaç dakika sürebilir.",
-            )}
-          </p>
+        <Modal title={t("{ad} kurulsun mu?", { ad: name })} onClose={() => setConfirming(false)}>
+          <p>{t(body)}</p>
           <div className="modal-actions">
             <button type="button" data-autofocus onClick={() => setConfirming(false)}>
               {t("Vazgeç")}
@@ -49,4 +59,8 @@ export default function InstallLibreOffice({ onInstalled }: { onInstalled: () =>
       )}
     </div>
   );
+}
+
+export default function InstallLibreOffice({ onInstalled }: { onInstalled: () => void }) {
+  return <InstallEngine engine="libreoffice" onInstalled={onInstalled} />;
 }

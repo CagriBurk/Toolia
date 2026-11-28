@@ -183,3 +183,31 @@ def test_no_request_context_means_full_access():
     with access.acting_as("cihaz"):
         assert access.is_device() and not access.can_see(None) and access.can_see("cihaz")
     assert access.current() is None
+
+
+def test_phone_cannot_compile_latex(lan_app, tmp_path):
+    """TeX bilgisayardaki herhangi bir dosyayı okuyup PDF'e koyabilir (MiKTeX engellemiyor);
+    eşleşmiş cihaz LaTeX derleyemez, iş hiç başlamaz."""
+    phone = _phone(lan_app)
+    src = tmp_path / "oku.tex"
+    src.write_text(r"\documentclass{article}\begin{document}\input{C:/Windows/win.ini}"
+                   r"\end{document}", encoding="utf-8")
+    mine = _upload(phone, src)
+    r = phone.post("/api/jobs", json={"type": "tex_to_pdf", "files": [mine["id"]]})
+    assert r.status_code == 400 and "yalnızca bu bilgisayardan" in r.text
+    assert phone.get("/api/jobs").json() == []
+
+
+def test_latex_worker_refuses_device_even_without_route_check(settings, tmp_path):
+    from toolia.jobs import workers
+    from toolia.jobs.models import TexToPdfRequest
+    from toolia.storage import FileStore
+
+    store = FileStore(settings.files_dir, settings.max_upload_mb)
+    req = TexToPdfRequest(type="tex_to_pdf", files=["0" * 32])
+    token = access._owner.set("cihaz-1")
+    try:
+        with pytest.raises(Exception, match="yalnızca bu bilgisayardan"):
+            workers.tex_to_pdf(store, settings, req, lambda *_: None, tmp_path, "is")
+    finally:
+        access._owner.reset(token)

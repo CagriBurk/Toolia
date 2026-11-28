@@ -551,6 +551,56 @@ def md(
 
 @app.command()
 @friendly_errors
+def latex(
+    kaynak: Annotated[Path, typer.Argument(
+        help="Ana .tex dosyası, proje klasörü ya da Overleaf'ten indirilen .zip", exists=True)],
+    cikti: Annotated[Path | None, typer.Option("-o", "--cikti", help="Çıktı PDF")] = None,
+    ana: Annotated[str | None, typer.Option(
+        "--ana", help="Ana dosya (klasör / zip içinde; boş: documentclass satırından "
+        "bulunur)")] = None,
+    motor: Annotated[str, typer.Option(
+        "--motor", help="auto, pdflatex, xelatex ya da lualatex")] = "auto",
+    config: ConfigOpt = None,
+) -> None:
+    """LaTeX'i PDF'e derler (MiKTeX / TeX Live). .tex dosyası kendi klasöründe
+    derlenir (yardımcı dosyalar oraya yazılır); zip geçici klasöre açılır."""
+    import tempfile
+
+    from toolia.convert.latex import compile_project, extract_project, find_main
+    from toolia.core.pdfio import unique_path
+
+    settings = load_settings(config)
+    status = engines.detect_latex(settings)
+    if not status.ok:
+        raise TooliaError(status.problems[0] if status.problems else
+                          f"LaTeX bulunamadı. Kur: {status.install_hint}")
+    if motor not in ("auto", "pdflatex", "xelatex", "lualatex"):
+        raise TooliaError(f"Bilinmeyen motor: {motor}")
+    with tempfile.TemporaryDirectory(prefix="pa-tex-") as tmp:
+        if kaynak.is_file() and kaynak.suffix.lower() == ".zip":
+            root = Path(tmp) / "proje"
+            root.mkdir()
+            extract_project(kaynak, root)
+            main, notes = find_main(root, ana)
+            default = kaynak.with_suffix(".pdf")
+        elif kaynak.is_dir():
+            root = kaynak
+            main, notes = find_main(root, ana)
+            default = kaynak / f"{main.stem}.pdf"
+        else:
+            root, main, notes = kaynak.parent, kaynak, []
+            default = kaynak.with_suffix(".pdf")
+        out = cikti or (default if main.with_suffix(".pdf") == default else unique_path(default))
+        result = compile_project(root, main, out, tex=status.path, engine=motor,
+                                 on_progress=lambda _f, m: typer.echo(f"  {m}"),
+                                 ghostscript=engines.detect_ghostscript(settings).path)
+    typer.echo(f"Yazıldı: {out} ({result.engine}, ana dosya {result.main})")
+    for w in notes + result.warnings:
+        typer.secho(f"  uyarı: {w}", fg="yellow")
+
+
+@app.command()
+@friendly_errors
 def cevir(
     dosyalar: Annotated[list[Path], typer.Argument(
         help="Word, Excel, PowerPoint, ODT, RTF, HTML veya TXT dosyaları", exists=True,

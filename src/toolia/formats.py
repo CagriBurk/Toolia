@@ -16,6 +16,9 @@ IMAGE_EXTS = RASTER_IMAGE_EXTS | {".svg"}
 MARKDOWN_EXTS = frozenset({".md", ".markdown"})
 TEXT_EXTS = frozenset({".txt"})
 HTML_EXTS = frozenset({".html", ".htm"})
+# LaTeX → PDF: ana dosya ve yanında gelen kaynaklar; Overleaf projesi .zip olarak gelir.
+TEX_EXTS = frozenset({".tex", ".bib", ".cls", ".sty", ".bst"})
+ARCHIVE_EXTS = frozenset({".zip"})
 
 # --- Biçim dönüştürme (PDF dışı) -------------------------------------------------------------
 # Yalnız sık kullanılan hedefler (bilinçli olarak dar tutuldu). Resimler Pillow ile, Office
@@ -67,4 +70,6 @@ KINDS: dict[str, str] = {
     **dict.fromkeys(IMAGE_EXTS, "image"),
     **dict.fromkeys(OFFICE_EXTS, "office"),
     **dict.fromkeys(HTML_EXTS, "html"),
+    **dict.fromkeys(TEX_EXTS, "tex"),
+    **dict.fromkeys(ARCHIVE_EXTS, "zip"),
 }

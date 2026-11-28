@@ -1,4 +1,4 @@
-"""Dış araçları (LibreOffice, Tesseract, Ghostscript, Edge/Chrome) bulur ve raporlar.
+"""Dış araçları (LibreOffice, Tesseract, Ghostscript, Edge/Chrome, LaTeX) bulur ve raporlar.
 
 Her motor için: ayardaki yol → uygulamayla gelen motor (kurulumun `motorlar/` klasörü) → PATH →
 bilinen Windows kurulum klasörleri sırasıyla aranır.
@@ -42,6 +42,7 @@ class EngineStatus:
     problems: list[str] = field(default_factory=list)  # motor kullanılamaz ("hazır değil")
     install_hint: str | None = None
     warnings: list[str] = field(default_factory=list)  # çalışır ama dikkat (ör. eski sürüm)
+    optional: bool = False  # yalnız tek bir araç için; ilk açılışta "eksik" diye gösterilmez
 
     @property
     def ok(self) -> bool:
@@ -375,6 +376,89 @@ def detect_browser(settings: Settings) -> EngineStatus:
     return status
 
 
+LATEX_ENGINES = ("pdflatex", "xelatex", "lualatex")
+
+
+def _exe_name(name: str) -> str:
+    return name + ".exe" if on_windows() else name
+
+
+def _latex_bin_dirs() -> list[Path]:
+    """MiKTeX (kullanıcı ya da yönetici kurulumu) ve TeX Live'ın bilinen Windows klasörleri;
+    TeX Live'da en yeni yıl önce."""
+    if not on_windows():
+        return []
+    dirs = [base / "MiKTeX/miktex/bin/x64" for base in _program_files()]
+    dirs += [base / "Programs/MiKTeX/miktex/bin/x64" for base in _program_files()]
+    roots = [Path(os.environ.get("SYSTEMDRIVE", "C:") + "\\") / "texlive"]
+    for root in roots:
+        for year in sorted(glob.glob(str(root / "20*")), reverse=True):
+            dirs += [Path(year) / "bin/windows", Path(year) / "bin/win64", Path(year) / "bin/win32"]
+    return dirs
+
+
+def find_tex(override: str = "") -> Path | None:
+    """pdflatex'in yolu. Ayardaki yol pdflatex'in kendisi ya da bulunduğu klasör olabilir."""
+    if override:
+        p = Path(override)
+        if p.is_dir():
+            p = p / _exe_name("pdflatex")
+        return p if p.is_file() else None
+    if found := find_on_path("pdflatex"):
+        return found
+    for d in _latex_bin_dirs():
+        if (p := d / _exe_name("pdflatex")).is_file():
+            return p
+    return None
+
+
+def latex_engine_path(tex: Path, name: str) -> Path | None:
+    """pdflatex'in yanındaki araç (xelatex, biber, bibtex, makeindex…); yoksa PATH'teki."""
+    if (p := tex.parent / _exe_name(name)).is_file():
+        return p
+    return find_on_path(name)
+
+
+def is_miktex(tex: str | Path) -> bool:
+    p = Path(tex)
+    return "miktex" in str(p).lower() or (p.parent / _exe_name("initexmf")).is_file()
+
+
+def detect_latex(settings: Settings) -> EngineStatus:
+    status = EngineStatus(
+        key="latex",
+        name="LaTeX (MiKTeX / TeX Live)",
+        available=False,
+        needed_for="LaTeX (.tex / Overleaf projesi) → PDF",
+        optional=True,
+        install_hint=_hint("winget install MiKTeX.MiKTeX",
+                           "sudo apt install texlive-latex-extra texlive-xetex texlive-luatex "
+                           "texlive-lang-european biber cm-super"),
+    )
+    engine = find_tex(settings.engines.latex)
+    if engine is None:
+        return status
+    status.available = True
+    status.path = str(engine)
+    out = _run([str(engine), "--version"]) or ""
+    if m := re.search(r"\(MiKTeX\s+([\d.]+)\)", out):
+        status.name, status.version = "MiKTeX", m.group(1)
+    elif m := re.search(r"TeX Live\s+(\d{4})", out):
+        status.name, status.version = "TeX Live", m.group(1)
+    missing = [e for e in LATEX_ENGINES[1:] if latex_engine_path(engine, e) is None]
+    if missing:
+        status.warnings.append(f"{' ve '.join(missing)} yok; fontspec kullanan belgeler "
+                               "derlenemez (pdflatex çalışır).")
+    # MiKTeX'te cm-super ilk derlemede kendiliğinden kurulur (convert/latex.py); TeX Live'da
+    # kullanıcı kurmalı, yoksa T1 belgeler bitmap yazı tipiyle çıkar.
+    kpse = None if is_miktex(engine) else latex_engine_path(engine, "kpsewhich")
+    if kpse and not (_run([str(kpse), "sfrm1000.pfb"]) or "").strip().endswith(".pfb"):
+        status.warnings.append("cm-super yazı tipleri yok; T1 kodlamalı belgeler bulanık "
+                               "çıkar. Kur: " + _hint("tlmgr install cm-super",
+                                                     "sudo apt install cm-super"))
+    return status
+
+
 def python_libraries() -> dict[str, str | None]:
     out = {}
     for pkg in ("pymupdf", "pikepdf", "fastapi"):
@@ -391,4 +475,5 @@ def detect_all(settings: Settings) -> list[EngineStatus]:
         detect_browser(settings),
         detect_tesseract(settings),
         detect_ghostscript(settings),
+        detect_latex(settings),
     ]

@@ -750,3 +750,26 @@ def test_package_writes_linux_launchers(tmp_path):
         text = raw.decode("utf-8")
         assert text.startswith("#!/bin/sh\n") and "-I -m toolia.kurulum" in text
         assert '"$@"' not in text
+
+
+def test_miktex_install_job_prepares_miktex(tmp_path, monkeypatch):
+    from toolia import proc
+    from toolia.convert import latex
+
+    calls = []
+    monkeypatch.setattr(workers.engines, "find_on_path", lambda name: r"C:\winget.exe")
+    def fake_run(args, **kw):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, b"Successfully installed", b"")
+
+    monkeypatch.setattr(proc, "run", fake_run)
+    monkeypatch.setattr(workers.engines, "find_tex", lambda _o="": tmp_path / "pdflatex.exe")
+    monkeypatch.setattr(latex, "configure_miktex", lambda tex: ["cm-super kurulamadı"])
+    with _client(tmp_path, monkeypatch) as c:
+        c.get("/api/session")
+        r = c.post("/api/jobs", json={"type": "install_engine", "engine": "miktex"})
+        job = c.app.state.jobs.wait(r.json()["id"], 10)
+    assert job.status == "bitti", job.error
+    assert "MiKTeX.MiKTeX" in calls[0]
+    assert any("MiKTeX kuruldu" in w for w in job.warnings)
+    assert "cm-super kurulamadı" in job.warnings

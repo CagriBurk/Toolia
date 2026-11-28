@@ -1,6 +1,6 @@
 import { t } from "./i18n";
 
-export type EngineKey = "libreoffice" | "browser" | "tesseract" | "ghostscript";
+export type EngineKey = "libreoffice" | "browser" | "tesseract" | "ghostscript" | "latex";
 
 export interface EngineStatus {
   key: EngineKey;
@@ -12,6 +12,8 @@ export interface EngineStatus {
   version: string | null;
   problems: string[];
   install_hint: string | null;
+  /** Yalnız tek bir araç için (LaTeX): ilk açılışta "eksik" diye gösterilmez. */
+  optional?: boolean;
 }
 
 export interface EnginesResponse {
@@ -69,7 +71,7 @@ export interface LanInfo {
   devices?: { ip: string; paired_at: number }[];
 }
 
-export type FileKind = "pdf" | "image" | "markdown" | "text" | "office" | "html" | "other";
+export type FileKind = "pdf" | "image" | "markdown" | "text" | "office" | "html" | "tex" | "zip" | "other";
 
 export interface FileVersion {
   n: number;

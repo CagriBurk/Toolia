@@ -11,6 +11,7 @@ Kısa tanıtım ve hızlı kurulum: [README](../README.md).
 | Sayfa düzenleyici | Sürükleyerek sıralama, döndürme, silme, başka PDF'ten sayfa ekleme, geri/ileri alma. Tamamen klavyeyle de kullanılır. |
 | İçerik Ekle | Yazı, resim, imza, vurgu, şekil ve karartma. Karartma, kutunun altındaki içeriği dosyadan gerçekten siler. |
 | Markdown → PDF | Canlı önizleme, temalar, LaTeX formüller, Obsidian sözdizimi. Yazılan not tarayıcıda taslak olarak saklanır. |
+| LaTeX → PDF | Overleaf'ten indirilen proje `.zip`'i ya da `.tex` dosyası (resim ve `.bib` dosyalarıyla) bilgisayarda derlenir; süre sınırı yok. MiKTeX ya da TeX Live ister (Ayarlar'dan kurulur). Hata olsa da PDF üretilebiliyorsa üretilir, hatalar satır numarasıyla gösterilir. Kaynakça (bibtex/biber), dizin, sözlük ve EPS şekiller desteklenir; kabuk komutu isteyen paketler (minted, svg) çalışmaz. İlk derleme eksik paketleri indirdiği için birkaç dakika sürebilir. Telefon modunda kapalı. |
 | Birleştir, Böl, Filigran, Sayfa Numarası | Önizlemeli ayrı ekranlar; çok dosyalı çıktılar tek ZIP olarak iner. |
 | Sıkıştır | Kayıpsız, dengeli ve güçlü seviyeler; önce-sonra boyutu gösterilir, dosya büyürse orijinal korunur. |
 | OCR | Taranmış PDF'i Türkçe + İngilizce aranabilir yapar; metni olan sayfaları atlar. |
@@ -26,6 +27,9 @@ belleğinde tutulur.
 - Markdown ve HTML baskısında ağ tamamen kapalıdır: belge internete veri gönderemez, diskteki
   başka dosyaları okuyamaz, ağdaki başka bilgisayarlara bağlanamaz.
 - LibreOffice her dönüşümde makroları kapalı, taze bir profille çalışır.
+- LaTeX kabuk komutları (`\write18`) kapalı derlenir ve projedeki `latexmkrc` okunmaz. TeX
+  bilgisayardaki başka dosyaları okuyabildiği için LaTeX derlemesi yalnız bu bilgisayardan
+  yapılabilir (telefon modunda kapalı); başkasından gelen `.tex`'i derlemeden önce göz at.
 - Ağ çıkışını ölçmek için: `uv run python tests/guvenlik/ag_cikisi.py` (bütün dönüşümleri
   çalıştırıp ağ bağlantılarını izler).
 - Bilinen istisna: Microsoft Edge kendi Microsoft hizmetlerine bağlanabiliyor. Bu bağlantıda
@@ -49,6 +53,8 @@ uv run python -m toolia cevir rapor.docx                     # Office / HTML / m
 uv run python -m toolia cevir a.docx b.xlsx --birlestir      # tek PDF, dosya başına yer imi
 uv run python -m toolia donustur IMG_1234.heic --hedef jpg
 uv run python -m toolia md not.md --tema rapor --icindekiler # Markdown → PDF
+uv run python -m toolia latex Proje.zip                      # Overleaf projesi → PDF
+uv run python -m toolia latex tez.tex --motor xelatex        # .tex kendi klasöründe derlenir
 ```
 
 Bütün komutların listesi: `uv run python -m toolia --help`; bir komutun ayrıntısı:
@@ -147,6 +153,10 @@ cd Toolia-<sürüm>-linux-x86_64
 - Ubuntu'da Snap Chromium veya Snap LibreOffice kuruluysa sandbox kısıtı sorun çıkarabilir;
   Google Chrome (`.deb`) ve `apt` ile kurulu LibreOffice önerilir.
 - Telefon modunda güvenlik duvarı açıksa portu aç: `sudo ufw allow 8790/tcp`.
+- LaTeX → PDF isteğe bağlıdır ve kurulumda sorulmaz (TeX Live ~560 MB). Gerekirse:
+  `sudo apt install texlive-latex-extra texlive-xetex texlive-luatex texlive-lang-european biber cm-super`
+  (Ubuntu 26.04 / TeX Live 2025 ile denendi). `cm-super` olmadan T1 kodlamalı belgelerde Türkçe
+  harfler bulanık çıkar ve PDF'te aranamaz.
 
 **Kaynak koddan:**
 

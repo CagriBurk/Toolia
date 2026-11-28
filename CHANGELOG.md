@@ -1,5 +1,40 @@
 # Değişiklikler
 
+## Yayımlanmadı
+
+### LaTeX → PDF
+- **Yeni araç: LaTeX → PDF.** Overleaf'ten indirilen proje `.zip`'i ya da ana `.tex` (yanındaki
+  resim, PDF şekil ve `.bib` dosyalarıyla) bilgisayarda derlenir; süre sınırı yoktur. Ana dosya
+  `\documentclass` satırından bulunur (öncelik `main.tex`); derleyici `% !TEX program` satırından
+  ya da paketlerden seçilir (`fontspec` → XeLaTeX), elle de seçilebilir. Kaynakça (bibtex /
+  biber), dizin (makeindex), sözlük (glossaries, makeglossaries-lite ile), kısaltma listesi
+  (nomencl) ve çapraz başvurular için gereken ek geçişler kendiliğinden yapılır. EPS şekiller
+  Ghostscript ile önceden PDF'e çevrilir (kabuk komutu gerekmez).
+- MiKTeX'te `cm-super` yazı tipleri yoksa ilk pdfLaTeX derlemesinden önce bir kez kurulur
+  (T1 kodlamalı belgeler bulanık çıkmasın); düğmeyle kurulan MiKTeX'te eksik paketlerin sormadan
+  inmesi açılır. TeX Live'da eksikse Ayarlar'da kurulum komutu gösterilir.
+- `minted` / `svg` gibi kabuk komutu isteyen paketlerde ne olduğunu ve ne yapılabileceğini
+  anlatan ileti. Türkçe babel'in kısaltmaları (`= : !`) cleveref / biblatex / `width=` hatalarına
+  yol açtığında `shorthands=off` önerilir.
+- `main.tex` yoksa ana dosya, öbür dosyaları içe alan ve kendisi içe alınmayan dosya olarak
+  seçilir (tez.tex, thesis.tex gibi adlar öncelikli). imakeidx ile birden çok dizin, bozuk
+  `.bib` için biber/bibtex hatasının dosya ve satırı, paket dosyalarındaki hatalar (ör. fontspec
+  pdfLaTeX'le derlenince "XeLaTeX seç") okunur iletiyle gösterilir.
+- Gerçekçi 29 Overleaf projesiyle denendi (makale, biblatex, natbib, XeLaTeX + Windows yazı
+  tipleri, beamer, tez + dizin, EPS, sözlük, LuaLaTeX, Türkçe dosya adı); ısınmış derleme 3–9 sn.
+  Linux'ta (Ubuntu 26.04, TeX Live 2025) aynı set ve testler de geçti; Linux kurulum ipucuna
+  `cm-super` eklendi (yoksa Türkçe harfler PDF'te aranamıyor). Bulunamayan yazı tipi için
+  okunur ileti.
+- Overleaf gibi: hata olsa da PDF üretilebiliyorsa üretilir, hatalar dosya ve satır numarasıyla
+  uyarı olarak gösterilir; PDF çıkmazsa ilk hata okunur bir dille bildirilir ("Eksik paket:
+  tikzcd.sty"). Tanımsız atıf/etiket ve bitmap (Type 3) yazı tipi uyarısı.
+- TeX dağıtımı pakete eklenmez: MiKTeX ya da TeX Live bulunur; yoksa Ayarlar'dan ve araç
+  ekranından tek düğmeyle MiKTeX kurulur (winget). Perl gerekmez (MiKTeX'in latexmk'si Perl
+  istediği için latexmk kullanılmaz). Komut satırı: `toolia latex proje.zip`.
+- Güvenlik: kabuk komutları (`\write18`) kapalı, projedeki `latexmkrc` okunmaz, zip açılırken
+  güvensiz yollar ve aşırı boyut reddedilir. TeX diskteki başka dosyaları okuyabildiği için
+  derleme telefon modunda kapalıdır.
+
 ## 0.14.0 — 2026-11-21
 
 Linux masaüstü kurulum paketi ve İngilizce arayüz desteği.

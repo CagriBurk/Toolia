@@ -176,7 +176,8 @@ def run(args: Sequence[str], *, timeout: float, marker: str | None = None,
 
 
 def run_lines(args: Sequence[str], *, timeout: float, on_line: Callable[[str], None],
-              should_cancel: Callable[[], bool] | None = None, tail: int = 40) -> tuple[int, str]:
+              should_cancel: Callable[[], bool] | None = None, tail: int = 40,
+              **popen) -> tuple[int, str]:
     """`run` gibi iptal edilebilir, ama çıktıyı (stdout + stderr) satır satır `on_line`'a verir:
     uzun süren aracın ilerlemesi (Ghostscript "Page 12") arayüze taşınır. Dönüş: (çıkış kodu,
     son `tail` satır)."""
@@ -186,7 +187,7 @@ def run_lines(args: Sequence[str], *, timeout: float, on_line: Callable[[str], N
     lines: queue.Queue[str | None] = queue.Queue()
     last: list[str] = []
     deadline = time.monotonic() + timeout
-    with spawn(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as proc:
+    with spawn(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **popen) as proc:
         def pump() -> None:
             assert proc.stdout is not None
             try:

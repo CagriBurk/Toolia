@@ -9,7 +9,7 @@ from toolia.settings import EnginePaths, Settings
 
 def test_detect_all_reports_every_engine(settings: Settings):
     keys = [e.key for e in engines.detect_all(settings)]
-    assert keys == ["libreoffice", "browser", "tesseract", "ghostscript"]
+    assert keys == ["libreoffice", "browser", "tesseract", "ghostscript", "latex"]
 
 
 def test_missing_override_path_means_unavailable(tmp_path: Path):

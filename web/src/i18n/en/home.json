@@ -44,7 +44,7 @@
   "Güvenlik ve Bakım": "Security & Maintenance",
   "AES-256 şifre, şifre kaldırma, meta veri temizliği, onarım": "AES-256 password, password removal, metadata cleanup, repair",
 
-  "Bu dosya türleri birlikte işlenemiyor. PDF, resim, Office belgesi ya da Markdown bırak.": "These file types can't be processed together. Drop PDFs, images, Office documents or Markdown.",
+  "Bu dosya türleri birlikte işlenemiyor. PDF, resim, Office belgesi, Markdown ya da LaTeX bırak.": "These file types can't be processed together. Drop PDFs, images, Office documents, Markdown or LaTeX.",
   "{n} resim yüklendi.": "{n} image uploaded.|{n} images uploaded.",
   "Belge yüklendi.": "Document uploaded.",
   "{n} belge yüklendi.": "{n} document uploaded.|{n} documents uploaded.",
