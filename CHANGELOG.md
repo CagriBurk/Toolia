@@ -1,6 +1,8 @@
 # Değişiklikler
 
-## Yayımlanmadı
+## 0.15.0 — 2026-11-28
+
+LaTeX → PDF: Overleaf projelerini bilgisayarında, süre sınırına takılmadan derle.
 
 ### LaTeX → PDF
 - **Yeni araç: LaTeX → PDF.** Overleaf'ten indirilen proje `.zip`'i ya da ana `.tex` (yanındaki
