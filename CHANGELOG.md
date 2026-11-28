@@ -4,10 +4,10 @@
 
 ### LaTeX → PDF
 - **Yeni araç: LaTeX → PDF.** Overleaf'ten indirilen proje `.zip`'i ya da ana `.tex` (yanındaki
-  resim, PDF şekil ve `.bib` dosyalarıyla) bilgisayarda derlenir; süre sınırı yoktur. Ana dosya
+  resim, PDF şekil ve `.bib` dosyalarıyla) bilgisayarda, Overleaf'in süre sınırına takılmadan derlenir. Ana dosya
   `\documentclass` satırından bulunur (öncelik `main.tex`); derleyici `% !TEX program` satırından
   ya da paketlerden seçilir (`fontspec` → XeLaTeX), elle de seçilebilir. Kaynakça (bibtex /
-  biber), dizin (makeindex), sözlük (glossaries, makeglossaries-lite ile), kısaltma listesi
+  biber), dizin (makeindex), sözlük (glossaries, makeindex ile), kısaltma listesi
   (nomencl) ve çapraz başvurular için gereken ek geçişler kendiliğinden yapılır. EPS şekiller
   Ghostscript ile önceden PDF'e çevrilir (kabuk komutu gerekmez).
 - MiKTeX'te `cm-super` yazı tipleri yoksa ilk pdfLaTeX derlemesinden önce bir kez kurulur
@@ -34,6 +34,16 @@
 - Güvenlik: kabuk komutları (`\write18`) kapalı, projedeki `latexmkrc` okunmaz, zip açılırken
   güvensiz yollar ve aşırı boyut reddedilir. TeX diskteki başka dosyaları okuyabildiği için
   derleme telefon modunda kapalıdır.
+- **Bağımsız güvenlik denetimi (2026-11-28, `LATEX_DENETIM_RAPORU.md`), yayımdan önce
+  kapatıldı:** makeglossaries-lite üzerinden komut çalıştırma (artık kullanılmıyor; sözlükler
+  `.aux`'tan sıkı denetimle okunur), biber.conf ile proje dışına yazma (`--noconf`, sabit
+  çıktı) ve biber'in uzak kaynak indirmesi (proje dışını gösteren kaynakta biber çalışmaz).
+  Ayrıca zip'te NTFS akışı / Windows aygıt adları / ortak kota / sıkıştırma bombası,
+  seçenek gibi okunan dosya adları, eski `main.pdf`'in başarı sayılması, süre bütçesi,
+  eşzamanlı derleme sınırı, `toolia motorlar`'ın isteğe bağlı LaTeX yüzünden hata vermesi,
+  Linux'ta büyük harfli `.TEX`, `\%` sonrası paket algılama, preamble/sınıf dosyasındaki
+  fontspec, özel sözlük türleri, telefon modunda arayüz ve erişilebilirlik düzeltmeleri.
+  CI'da TeX'li ayrı bir iş gerçek derleme testlerini çalıştırır.
 
 ## 0.14.0 — 2026-11-21
 

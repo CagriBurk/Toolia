@@ -1,6 +1,6 @@
 {
   "LaTeX → PDF": "LaTeX → PDF",
-  "Overleaf projesi (.zip) ya da .tex dosyası; süre sınırı yok": "Overleaf project (.zip) or .tex file; no time limit",
+  "Overleaf projesi (.zip) ya da .tex dosyası; Overleaf'in süre sınırı olmadan bilgisayarında derlenir": "Overleaf project (.zip) or .tex file; compiled on your computer without Overleaf's time limit",
   "LaTeX (.tex / Overleaf projesi) → PDF": "LaTeX (.tex / Overleaf project) → PDF",
   "LaTeX (.tex ya da Overleaf .zip'i)": "LaTeX (.tex or Overleaf .zip)",
   "PDF'e derlenir": "is compiled to PDF",
@@ -22,5 +22,6 @@
   "Birden çok .tex var; boş bırakılırsa \\documentclass içeren dosya seçilir.": "There are several .tex files; if left empty, the one with \\documentclass is used.",
   "Hata olsa da PDF üretilebiliyorsa üretilir ve hatalar uyarı olarak gösterilir. İlk derlemede eksik paketler indirileceği için biraz uzun sürebilir.": "If a PDF can be produced despite errors, it is, and the errors are shown as warnings. The first compile can take a while because missing packages are downloaded.",
   "Derleniyor…": "Compiling…",
-  "PDF'e derle": "Compile to PDF"
+  "PDF'e derle": "Compile to PDF",
+  "LaTeX derlemesi yalnızca bu bilgisayardan yapılabilir; telefon modunda kapalı.": "LaTeX compiling is only available on the computer itself; it is turned off in phone mode."
 }

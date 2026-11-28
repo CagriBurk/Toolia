@@ -12,6 +12,63 @@ def test_detect_all_reports_every_engine(settings: Settings):
     assert keys == ["libreoffice", "browser", "tesseract", "ghostscript", "latex"]
 
 
+def test_find_on_path_skips_unreadable_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """İzni olmayan bir PATH klasörü (Windows'ta PowerToys\\DSCModules gibi) aramayı ve
+    dolayısıyla detect_all()'ı çökertmez; sonraki klasördeki araç bulunur."""
+    import os
+    import stat
+
+    bad, good = tmp_path / "kilitli", tmp_path / "iyi"
+    bad.mkdir()
+    good.mkdir()
+    exe = good / ("arac.exe" if os.name == "nt" else "arac")
+    exe.write_bytes(b"")
+    exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", os.pathsep.join([str(bad), str(good)]))
+    monkeypatch.setenv("PATHEXT", ".EXE")
+    original = Path.is_file
+
+    def is_file(self):
+        if self.parent == bad:
+            raise PermissionError(13, "Erişim engellendi", str(self))
+        return original(self)
+
+    monkeypatch.setattr(Path, "is_file", is_file)
+    assert engines.find_on_path("arac") == exe
+    monkeypatch.setenv("PATH", str(bad))
+    assert engines.find_on_path("arac") is None
+
+
+def _status(key: str, *, available: bool, optional: bool = False) -> engines.EngineStatus:
+    return engines.EngineStatus(key=key, name=key, available=available, needed_for=f"{key} işi",
+                                optional=optional, install_hint=f"kur {key}")
+
+
+def test_motorlar_ignores_missing_optional_engine(monkeypatch: pytest.MonkeyPatch):
+    """LaTeX isteğe bağlı: yokluğu `toolia motorlar`ı (ve Linux CI'yi) başarısız yapmaz."""
+    from typer.testing import CliRunner
+
+    from toolia.cli import app
+
+    runner = CliRunner()
+    monkeypatch.setattr(engines, "detect_all", lambda s: [
+        _status("libreoffice", available=True),
+        _status("latex", available=False, optional=True),
+    ])
+    r = runner.invoke(app, ["motorlar"])
+    assert r.exit_code == 0, r.output
+    latex_line = next(line for line in r.output.splitlines() if "latex işi" in line)
+    assert "[--]" in latex_line and "(isteğe bağlı)" in latex_line
+    assert "(isteğe bağlı)" not in next(line for line in r.output.splitlines()
+                                        if "libreoffice işi" in line)
+
+    monkeypatch.setattr(engines, "detect_all", lambda s: [
+        _status("libreoffice", available=False),
+        _status("latex", available=True, optional=True),
+    ])
+    assert runner.invoke(app, ["motorlar"]).exit_code == 1
+
+
 def test_missing_override_path_means_unavailable(tmp_path: Path):
     s = Settings(engines=EnginePaths(libreoffice=str(tmp_path / "yok.exe")))
     status = engines.detect_libreoffice(s)

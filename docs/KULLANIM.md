@@ -11,7 +11,7 @@ Kısa tanıtım ve hızlı kurulum: [README](../README.md).
 | Sayfa düzenleyici | Sürükleyerek sıralama, döndürme, silme, başka PDF'ten sayfa ekleme, geri/ileri alma. Tamamen klavyeyle de kullanılır. |
 | İçerik Ekle | Yazı, resim, imza, vurgu, şekil ve karartma. Karartma, kutunun altındaki içeriği dosyadan gerçekten siler. |
 | Markdown → PDF | Canlı önizleme, temalar, LaTeX formüller, Obsidian sözdizimi. Yazılan not tarayıcıda taslak olarak saklanır. |
-| LaTeX → PDF | Overleaf'ten indirilen proje `.zip`'i ya da `.tex` dosyası (resim ve `.bib` dosyalarıyla) bilgisayarda derlenir; süre sınırı yok. MiKTeX ya da TeX Live ister (Ayarlar'dan kurulur). Hata olsa da PDF üretilebiliyorsa üretilir, hatalar satır numarasıyla gösterilir. Kaynakça (bibtex/biber), dizin, sözlük ve EPS şekiller desteklenir; kabuk komutu isteyen paketler (minted, svg) çalışmaz. İlk derleme eksik paketleri indirdiği için birkaç dakika sürebilir. Telefon modunda kapalı. |
+| LaTeX → PDF | Overleaf'ten indirilen proje `.zip`'i ya da `.tex` dosyası (resim ve `.bib` dosyalarıyla) bilgisayarda, Overleaf'in süre sınırına takılmadan derlenir (güvenlik için 15 dakikalık üst sınır var). MiKTeX ya da TeX Live ister (Ayarlar'dan kurulur). Hata olsa da PDF üretilebiliyorsa üretilir, hatalar satır numarasıyla gösterilir. Kaynakça (bibtex/biber), dizin, sözlük ve EPS şekiller desteklenir; kabuk komutu isteyen paketler (minted, svg) çalışmaz. İlk derleme eksik paketleri indirdiği için birkaç dakika sürebilir. Telefon modunda kapalı. |
 | Birleştir, Böl, Filigran, Sayfa Numarası | Önizlemeli ayrı ekranlar; çok dosyalı çıktılar tek ZIP olarak iner. |
 | Sıkıştır | Kayıpsız, dengeli ve güçlü seviyeler; önce-sonra boyutu gösterilir, dosya büyürse orijinal korunur. |
 | OCR | Taranmış PDF'i Türkçe + İngilizce aranabilir yapar; metni olan sayfaları atlar. |
@@ -27,13 +27,17 @@ belleğinde tutulur.
 - Markdown ve HTML baskısında ağ tamamen kapalıdır: belge internete veri gönderemez, diskteki
   başka dosyaları okuyamaz, ağdaki başka bilgisayarlara bağlanamaz.
 - LibreOffice her dönüşümde makroları kapalı, taze bir profille çalışır.
-- LaTeX kabuk komutları (`\write18`) kapalı derlenir ve projedeki `latexmkrc` okunmaz. TeX
-  bilgisayardaki başka dosyaları okuyabildiği için LaTeX derlemesi yalnız bu bilgisayardan
-  yapılabilir (telefon modunda kapalı); başkasından gelen `.tex`'i derlemeden önce göz at.
+- LaTeX kabuk komutları (`\write18`) kapalı derlenir; projedeki `latexmkrc` ve `biber.conf`
+  okunmaz, makeglossaries kullanılmaz, kaynakça yalnız projedeki `.bib` dosyalarından alınır
+  (uzak `location=remote` kaynak indirilmez). TeX bilgisayardaki başka dosyaları okuyabildiği
+  için LaTeX derlemesi yalnız bu bilgisayardan yapılabilir (telefon modunda kapalı);
+  başkasından gelen `.tex`'i derlemeden önce göz at.
 - Ağ çıkışını ölçmek için: `uv run python tests/guvenlik/ag_cikisi.py` (bütün dönüşümleri
   çalıştırıp ağ bağlantılarını izler).
 - Bilinen istisna: Microsoft Edge kendi Microsoft hizmetlerine bağlanabiliyor. Bu bağlantıda
-  belgenin içeriği yoktur (ölçüldü). Diğer motorlar hiç bağlanmaz.
+  belgenin içeriği yoktur (ölçüldü). MiKTeX de belgenin istediği ama kurulu olmayan LaTeX
+  paketlerini internetten (CTAN) indirir; belgenin içeriği gönderilmez. Diğer motorlar hiç
+  bağlanmaz.
 
 Ayrıntılar: [GUVENLIK_PLANI.md](../GUVENLIK_PLANI.md).
 

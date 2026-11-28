@@ -102,6 +102,37 @@ jobs:
       - name: Testler
         run: uv run python -m pytest --tb=short -rs
 
+  # LaTeX → PDF: gerçek derleme testleri yalnız TeX kuruluyken koşar; öbür işlerde atlanır.
+  # TeX Live dağıtımın paketlerinden (önerilen paketler olmadan: default-jre gibi ağır
+  # bağımlılıklar gelmesin; gerekenler açıkça yazıldı). Ghostscript EPS testleri için.
+  latex:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: TeX Live (pdflatex, xelatex, lualatex, biber) ve Ghostscript
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends texlive-latex-extra \
+            texlive-xetex texlive-luatex texlive-lang-european biber cm-super ghostscript \
+            texlive-bibtex-extra texlive-fonts-recommended texlive-plain-generic lmodern
+
+      - name: Python bağımlılıkları
+        run: uv sync --locked
+
+      # `motorlar` burada 1 döner (LibreOffice/Tesseract kurulmadı); yalnız LaTeX'in
+      # bulunduğu denetlenir, yoksa derleme testleri sessizce atlanırdı.
+      - name: LaTeX bulundu mu
+        run: |
+          uv run python -m toolia motorlar || true
+          uv run python -c "from toolia import engines; p = engines.find_tex(); print(p); assert p, 'pdflatex yok'"
+
+      - name: LaTeX testleri
+        run: uv run pytest tests/test_latex.py tests/test_latex_cli.py -q --tb=short -rs
+
   # Masaüstü paketi (motorsuz: CI'da Tesseract/Ghostscript yok). Paket kendi Python'uyla
   # denenir (bağımlılıklar yükleniyor mu, arayüz ve fontlar pakette mi) ve artifact olarak
   # yüklenir. Arkadaşlara verilecek tam paket (OCR dahil) yerelde `paket/derle.py` ile üretilir.

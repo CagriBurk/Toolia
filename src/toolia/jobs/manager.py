@@ -29,8 +29,11 @@ from toolia.storage import file_ids_in
 
 log = logging.getLogger("toolia.jobs")
 
-# Aynı anda en fazla kaç tane: tarayıcı/LibreOffice/OCR bellek ve işlemci yer.
-LIMITS = {"md_to_pdf": 1, "office_to_pdf": 1, "convert": 1, "ocr": 1, "compress": 2}
+# Aynı anda en fazla kaç tane: tarayıcı/LibreOffice/OCR bellek ve işlemci yer. LaTeX
+# derlemeleri MiKTeX paket veritabanı / biber önbellek kilitlerine, motor kurulumları da
+# winget'e birlikte çarpmasın diye tek tek çalışır.
+LIMITS = {"md_to_pdf": 1, "office_to_pdf": 1, "convert": 1, "ocr": 1, "compress": 2,
+          "tex_to_pdf": 1, "install_engine": 1}
 GENERAL_WORKERS = 4
 KEEP_JOBS = 200  # bellekte ve diskte tutulan en fazla kayıt
 # Yanıtlarda `request`in yalnızca küçük alanları gider (arayüz `file` vb. kullanır); sayfa

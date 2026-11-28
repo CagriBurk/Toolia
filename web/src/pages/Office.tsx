@@ -15,10 +15,12 @@ const KINDS: FileMeta["kind"][] = ["office", "html", "text"];
 interface Props {
   route: Route;
   engines: EnginesResponse | null;
+  /** Bilgisayarın kendisinden mi açıldı; kurulum düğmesi yalnız o zaman (telefondan kurulamaz). */
+  local?: boolean;
   onEnginesChanged: () => void;
 }
 
-export default function Office({ route, engines, onEnginesChanged }: Props) {
+export default function Office({ route, engines, local, onEnginesChanged }: Props) {
   const initial = useFiles(idsFrom(route));
   const [files, setFiles] = useState<FileMeta[]>([]);
   const [merge, setMerge] = useState(false);
@@ -40,7 +42,7 @@ export default function Office({ route, engines, onEnginesChanged }: Props) {
           {lo && !lo.ok && needsLo && (
             <div className="banner error">
               {t("LibreOffice bulunamadı; Word/Excel/PowerPoint dosyaları çevrilemez. HTML ve TXT çevrilebilir.")}
-              {engines?.windows ? (
+              {local && engines?.windows ? (
                 <InstallLibreOffice onInstalled={onEnginesChanged} />
               ) : (
                 lo.install_hint && <code className="small">{lo.install_hint}</code>

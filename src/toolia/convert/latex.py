@@ -4,27 +4,43 @@ TeX dağıtımı uygulamaya gömülmez (GB'larca); kullanıcının MiKTeX'i ya d
 (`engines.detect_latex`). Derleme Overleaf'e benzer davranır: hata olsa da PDF üretilebiliyorsa
 üretilir ve hatalar uyarı olarak bildirilir; PDF çıkmazsa ilk hata satır numarasıyla gösterilir.
 
-Güvenlik (GUVENLIK_PLANI.md): .tex dosyası bir programdır.
-- `\\write18` (kabuk komutu) her zaman kapalı: `-no-shell-escape`.
-- Projedeki `latexmkrc` Perl kodudur; latexmk hiç kullanılmadığı için okunmaz.
-- TeX bilgisayardaki başka dosyaları okuyabilir (`\\input{C:/...}`; MiKTeX bunu engellemiyor,
-  denendi). Bu yüzden derleme yalnız bu bilgisayardan istenebilir; telefon modunda kapalıdır
-  (`jobs/workers.py`).
-- Zip açılırken mutlak yol, `..`, bağlantı ve aşırı boyut reddedilir.
-- Süre sınırı (ilk derlemede MiKTeX eksik paketleri indirebilir) ve süreç ağacını öldürme `proc`.
+Güvenlik (GUVENLIK_PLANI.md, "LaTeX → PDF"): .tex dosyası bir programdır ve yardımcı araçlara
+(biber, bibtex, makeindex, Ghostscript) dolaylı olarak girdi verir.
+- `\\write18` (kabuk komutu) her motorda kapalı: `-no-shell-escape`.
+- latexmk ve makeglossaries(-lite) hiç çalıştırılmaz: latexmkrc Perl kodudur; makeglossaries-lite
+  `.aux`'tan (belgenin yazabildiği dosya) okuduğu program adını ve seçenekleri kaçışsız biçimde
+  kabuğa verir (2026-11-28 denetimi, K1). Sözlükler `.aux`'tan sıkı ad denetimiyle okunur ve
+  makeindex kabuksuz çağrılır.
+- biber `--noconf` (projedeki biber.conf dosyası çıktı yolunu değiştirebiliyordu, K2) ve sabit
+  `--output-file` ile çalışır; `.bcf`'deki kaynaklar uzak adres, UNC, mutlak yol ya da `..`
+  içeriyorsa biber hiç çalıştırılmaz (veri dışarı sızdırılabiliyordu, K3).
+- Belgeden gelen dosya adları seçenek gibi yorumlanmasın: ana dosya `-`/`&`/`*` ile başlayamaz,
+  makeindex adları harf/rakamla başlar, Ghostscript'e mutlak yol verilir ve `%` içeren çıktı
+  adı geçici adla yazılır.
+- TeX bilgisayardaki başka dosyaları okuyabilir (`\\input{C:/...}`; MiKTeX bunu engellemiyor).
+  Bu yüzden derleme yalnız bu bilgisayardan istenebilir; telefon modunda kapalıdır
+  (`api/routes_jobs.py` ve `jobs/workers.py`).
+- Zip: mutlak yol, `..`, sürücü harfi, NTFS akışı (`:`), Windows'ta yasak karakter ve aygıt
+  adları reddedilir; bağlantılar atlanır; açılan gerçek bayt ve dosya sayısı bütün zip'ler için
+  ortak sınırlanır; sıkıştırma oranı denetlenir.
+- Tek süre sınırı (`TIMEOUT_S`): EPS çevirme ve cm-super kurulumu dahil her adım kalan süreyi
+  kullanır; iptal ve süre dolunca süreç ağacı öldürülür (`proc`).
 """
 
 from __future__ import annotations
 
 import contextlib
+import html
 import logging
 import os
 import re
 import shutil
 import stat
 import subprocess
+import threading
 import time
 import zipfile
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -39,6 +55,8 @@ ENGINES = engines.LATEX_ENGINES
 TIMEOUT_S = 15 * 60
 MAX_ZIP_FILES = 5000
 MAX_ZIP_BYTES = 1024 * 1024 * 1024
+MAX_ZIP_RATIO = 100  # büyük ve aşırı sıkıştırılmış zip: sıkıştırma bombası (office.py ile aynı)
+MAX_PATH_CHARS = 240  # Windows'ta MAX_PATH (260) ve geçici klasör payı
 MAX_SCAN_BYTES = 4 * 1024 * 1024  # ana dosya ararken okunacak en büyük .tex
 
 Progress = Callable[[float, str], None]
@@ -54,56 +72,120 @@ class TexResult:
 
 # --- proje hazırlama ---------------------------------------------------------------------------
 
-def extract_project(archive: Path, dest: Path, display_name: str | None = None) -> None:
-    """Zip'i `dest` altına güvenle açar."""
+@dataclass
+class ZipQuota:
+    """Bir işteki bütün zip'ler için ortak sınır (500 kez aynı zip = 500 GB olmasın)."""
+    files: int = 0
+    bytes: int = 0
+
+
+_WIN_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
+                 *(f"LPT{i}" for i in range(1, 10))}
+_BAD_PART = re.compile(r'[<>:"|?*\x00-\x1f]')
+
+
+def _check_part(part: str) -> bool:
+    """Zip içindeki tek bir yol parçası her işletim sisteminde güvenli mi?"""
+    if part in ("", ".", "..") or _BAD_PART.search(part):
+        return False
+    if part != part.rstrip(". "):  # Windows sondaki nokta/boşluğu atar: başka dosyaya yazılır
+        return False
+    return part.split(".", 1)[0].upper() not in _WIN_RESERVED
+
+
+def extract_project(archive: Path, dest: Path, display_name: str | None = None,
+                    quota: ZipQuota | None = None) -> None:
+    """Zip'i `dest` altına güvenle açar. Her hata okunur bir `TooliaError` olur."""
+    label = display_name or archive.name
+    quota = quota if quota is not None else ZipQuota()
     try:
-        zf = zipfile.ZipFile(archive)
-    except (zipfile.BadZipFile, OSError) as e:
-        raise TooliaError(f"'{display_name or archive.name}' açılamadı: geçerli bir .zip "
-                          "değil.") from e
-    with zf:
-        infos = zf.infolist()
-        if len(infos) > MAX_ZIP_FILES:
-            raise TooliaError(f"Zip'te çok fazla dosya var ({len(infos)}; en çok "
-                              f"{MAX_ZIP_FILES}).")
-        if sum(i.file_size for i in infos) > MAX_ZIP_BYTES:
-            raise TooliaError("Zip açıldığında 1 GB'tan büyük oluyor; LaTeX projesi için fazla.")
-        root = dest.resolve()
-        for info in infos:
-            name = info.filename.replace("\\", "/")
-            parts = PurePosixPath(name).parts
-            if (not parts or name.startswith("/") or ":" in parts[0] or ".." in parts):
-                raise TooliaError(f"Zip'te güvensiz dosya yolu: {info.filename}")
-            if parts[0] == "__MACOSX":
-                continue
-            if stat.S_ISLNK(info.external_attr >> 16):
-                continue  # bağlantılar açılmaz
-            target = (root / Path(*parts)).resolve()
-            if not target.is_relative_to(root):
-                raise TooliaError(f"Zip'te güvensiz dosya yolu: {info.filename}")
-            if info.is_dir():
+        with zipfile.ZipFile(archive) as zf:
+            _extract(zf, dest.resolve(), label, quota, archive.stat().st_size)
+    except TooliaError:
+        raise
+    except RuntimeError as e:  # şifreli zip
+        raise TooliaError(f"'{label}' açılamadı: şifreli zip desteklenmiyor.") from e
+    except (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError, ValueError) as e:
+        raise TooliaError(f"'{label}' açılamadı: bozuk ya da desteklenmeyen bir zip "
+                          f"({type(e).__name__}).") from e
+    except OSError as e:
+        raise TooliaError(f"'{label}' açılamadı: {e.strerror or e}.") from e
+
+
+def _extract(zf: zipfile.ZipFile, root: Path, label: str, quota: ZipQuota,
+             packed: int) -> None:
+    infos = zf.infolist()
+    quota.files += len(infos)
+    if quota.files > MAX_ZIP_FILES:
+        raise TooliaError(f"Zip'lerde çok fazla dosya var (en çok {MAX_ZIP_FILES}).")
+    declared = sum(i.file_size for i in infos)
+    if declared > 100 * 1024 * 1024 and declared / max(packed, 1) > MAX_ZIP_RATIO:
+        raise TooliaError(f"'{label}' aşırı sıkıştırılmış (sıkıştırma bombası olabilir); "
+                          "güvenlik için açılmadı.")
+    if quota.bytes + declared > MAX_ZIP_BYTES:
+        raise TooliaError("Zip'ler açıldığında 1 GB'tan büyük oluyor; LaTeX projesi için fazla.")
+    for info in infos:
+        name = info.filename.replace("\\", "/")
+        is_dir = name.endswith("/") or info.is_dir()
+        parts = PurePosixPath(name).parts
+        if not parts or name.startswith("/") or not all(_check_part(p) for p in parts):
+            raise TooliaError(f"Zip'te güvensiz ya da bu sistemde yazılamayan dosya adı: "
+                              f"{info.filename}")
+        if parts[0] == "__MACOSX":
+            continue
+        if stat.S_ISLNK(info.external_attr >> 16):
+            continue  # bağlantılar açılmaz
+        target = root.joinpath(*parts)
+        if len(str(target)) > MAX_PATH_CHARS or not target.resolve().is_relative_to(root):
+            raise TooliaError(f"Zip'te güvensiz ya da çok uzun dosya yolu: {info.filename}")
+        try:
+            if is_dir:
                 target.mkdir(parents=True, exist_ok=True)
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(info) as src, open(target, "wb") as out:
-                shutil.copyfileobj(src, out, 1024 * 1024)
+            if target.is_dir():
+                raise IsADirectoryError(str(target))
+            _copy_counted(zf, info, target, quota)
+        except (FileExistsError, IsADirectoryError, NotADirectoryError) as e:
+            raise TooliaError(f"Zip'te aynı adla hem dosya hem klasör var: {info.filename}") from e
 
 
-_DOCCLASS = re.compile(r"^[^%\n]*\\documentclass\s*(\[[^\]]*\])?\s*\{([^}]*)\}", re.MULTILINE)
-_MAGIC = re.compile(r"^\s*%\s*!\s*TEX\s+(?:TS-)?program\s*=\s*(\w+)", re.IGNORECASE | re.MULTILINE)
+def _copy_counted(zf: zipfile.ZipFile, info: zipfile.ZipInfo, target: Path,
+                  quota: ZipQuota) -> None:
+    """Başlıktaki boyuta güvenmeden, gerçekten açılan baytı sayarak kopyalar."""
+    written = 0
+    with zf.open(info) as src, open(target, "wb") as out:
+        while chunk := src.read(1024 * 1024):
+            written += len(chunk)
+            quota.bytes += len(chunk)
+            if quota.bytes > MAX_ZIP_BYTES or written > info.file_size + 1024 * 1024:
+                raise TooliaError("Zip açıldığında beklenenden büyük çıkıyor (sıkıştırma "
+                                  "bombası olabilir); güvenlik için durduruldu.")
+            out.write(chunk)
 
+
+_DOCCLASS = re.compile(r"\\documentclass\s*(\[[^\]]*\])?\s*\{([^}]*)\}")
+_MAGIC = re.compile(r"^\s*%\s*!\s*TEX\s+(?:TS-)?program\s*=\s*(\w+)", re.IGNORECASE)
+MAGIC_LINES = 20  # TeX düzenleyicileri "% !TEX program" satırını yalnız dosyanın başında arar
 
 _INCLUDES = re.compile(r"\\(?:input|include|subfile|subimport\*?\{[^}]*\}|import\*?\{[^}]*\})"
                        r"\s*\{([^}]+)\}")
-_BIBREF = re.compile(r"^[^%\n]*\\(?:bibliography|addbibresource)\s*(?:\[[^\]]*\])?\{",
-                     re.MULTILINE)
+_BIBREF = re.compile(r"\\(?:bibliography|addbibresource)\s*(?:\[[^\]]*\])?\{")
+_PACKAGES = re.compile(r"\\(?:usepackage|RequirePackage)\s*(?:\[[^\]]*\])?\s*\{([^}]+)\}")
 _MAIN_NAMES = {"thesis", "tez", "paper", "report", "rapor", "makale", "article", "document",
                "ana", "belge", "manuscript", "dissertation", "ms", "proje", "odev", "ödev"}
+_UNESCAPED_PERCENT = re.compile(r"(?<!\\)(?:\\\\)*%")
+
+
+def _strip_comment(line: str) -> str:
+    """Satırdaki yorumu atar: `\\%` kaçışlıdır ama `\\\\%` (satır sonu + yorum) değildir."""
+    m = _UNESCAPED_PERCENT.search(line)
+    return line if m is None else line[:m.end() - 1]
 
 
 def _code(text: str) -> str:
-    """Yorumları atılmış kaynak (kaçışlı \\% korunur)."""
-    return "\n".join(re.split(r"(?<!\\)%", line, maxsplit=1)[0] for line in text.splitlines())
+    """Yorumları atılmış kaynak."""
+    return "\n".join(_strip_comment(line) for line in text.splitlines())
 
 
 def _read(path: Path) -> str:
@@ -115,34 +197,61 @@ def _read(path: Path) -> str:
         return ""
 
 
+def _tex_files(root: Path, suffixes: tuple[str, ...] = (".tex",)) -> list[Path]:
+    """Projedeki dosyalar; uzantı büyük/küçük harf duyarsız (Linux'ta MAIN.TEX de bulunsun)."""
+    return sorted(p for p in root.rglob("*")
+                  if p.suffix.lower() in suffixes and p.is_file()
+                  and "__MACOSX" not in p.relative_to(root).parts)
+
+
+def _key(path: Path) -> str:
+    return os.path.normcase(str(path.resolve()))
+
+
+def _ref_targets(ref: str, dirs: list[Path]) -> set[str]:
+    """`\\input{bolum/giris}` hangi dosyaları gösterebilir (uzantılı/uzantısız, iki klasörden)."""
+    ref = ref.strip()
+    out = set()
+    for d in dirs:
+        q = d / ref
+        out.add(_key(q))
+        out.add(_key(Path(str(q) + ".tex")))
+    return out
+
+
 def find_main(root: Path, preferred: str | None = None) -> tuple[Path, list[str]]:
     """Derlenecek ana .tex dosyası ve (birden çok aday varsa) bir uyarı."""
-    texs = sorted(p for p in root.rglob("*.tex")
-                  if p.is_file() and "__MACOSX" not in p.relative_to(root).parts)
+    texs = _tex_files(root)
     if not texs:
         raise TooliaError("Projede .tex dosyası yok.")
     rel = {p: p.relative_to(root).as_posix() for p in texs}
     if preferred:
-        want = preferred.strip().replace("\\", "/").strip("/")
-        hits = [p for p in texs if rel[p] == want] or [p for p in texs if p.name == want]
+        want = preferred.strip().replace("\\", "/").strip("/").lower()
+        hits = ([p for p in texs if rel[p].lower() == want]
+                or [p for p in texs if p.name.lower() == want])
         if not hits:
             raise TooliaError(f"Ana dosya bulunamadı: {preferred}. Projedeki .tex dosyaları: "
                               + ", ".join(rel[p] for p in texs[:10]))
         return hits[0], []
-    sources = {p: _read(p) for p in texs}
-    # Başka bir dosyanın \input / \include ettiği dosya ana dosya değildir.
-    included = {Path(ref.strip()).stem.lower()
-                for text in sources.values() for ref in _INCLUDES.findall(_code(text))}
+    codes = {p: _code(_read(p)) for p in texs}
+    # Başka bir dosyanın \input / \include ettiği dosya ana dosya değildir. Gerçek göreli yol
+    # eşleştirilir: kökteki main.tex, sub/main.tex'i içe alıyor diye kendini elemesin.
+    included_by: dict[str, set[Path]] = {}
+    for p, code in codes.items():
+        for ref in _INCLUDES.findall(code):
+            for target in _ref_targets(ref, [p.parent, root]):
+                included_by.setdefault(target, set()).add(p)
     candidates = []
     for p in texs:
-        m = _DOCCLASS.search(sources[p])
+        m = _DOCCLASS.search(codes[p])
         if m:
             subfile = m.group(2).strip() in ("subfiles", "standalone")
+            included = bool(included_by.get(_key(p), set()) - {p})
             stem = p.stem.lower()
             name_rank = 0 if stem == "main" else 1 if stem in _MAIN_NAMES else 2
-            pulls = bool(_INCLUDES.search(_code(sources[p])) or _BIBREF.search(sources[p]))
-            candidates.append((subfile, stem in included, name_rank, not pulls,
-                               len(rel[p].split("/")), -len(sources[p]), rel[p], p))
+            pulls = bool(_INCLUDES.search(codes[p]) or _BIBREF.search(codes[p]))
+            candidates.append((subfile, included, name_rank, not pulls,
+                               len(rel[p].split("/")), -len(codes[p]), rel[p], p))
     if not candidates:
         if len(texs) == 1:
             return texs[0], []
@@ -159,14 +268,36 @@ def find_main(root: Path, preferred: str | None = None) -> tuple[Path, list[str]
     return main, notes
 
 
-def pick_engine(source: str) -> str:
-    """`% !TEX program = xelatex` yorumu; yoksa paketlere bakılır (Overleaf'in varsayılanı
-    pdfLaTeX'tir ama fontspec'li bir belge onunla derlenmez)."""
-    if m := _MAGIC.search(source):
-        name = m.group(1).lower()
-        if name in ENGINES:
-            return name
-    code = "\n".join(line.split("%", 1)[0] for line in source.splitlines())
+def _engine_sources(main: Path) -> str:
+    """Derleyici seçimi için bakılacak kod: ana dosya, onun doğrudan içe aldığı dosyalar ve
+    projedeki .sty/.cls (Overleaf tez şablonlarında fontspec çoğu zaman preamble.tex ya da
+    özel sınıf dosyasındadır)."""
+    code = _code(_read(main))
+    parts = [code]
+    for ref in _INCLUDES.findall(code)[:50]:
+        for target in (main.parent / ref.strip(), main.parent / (ref.strip() + ".tex")):
+            if target.is_file() and target.resolve().is_relative_to(main.parent.resolve()):
+                parts.append(_code(_read(target)))
+                break
+    names = {n.strip() for group in _PACKAGES.findall(code) for n in group.split(",")}
+    if m := _DOCCLASS.search(code):
+        names.add(m.group(2).strip())
+    for n in names:
+        for ext in (".sty", ".cls"):
+            local = main.parent / (n + ext)
+            if local.is_file():
+                parts.append(_code(_read(local)))
+    return "\n".join(parts)
+
+
+def pick_engine(source: str, extra: str = "") -> str:
+    """`% !TEX program = xelatex` yorumu (ilk satırlarda); yoksa paketlere bakılır (Overleaf'in
+    varsayılanı pdfLaTeX'tir ama fontspec'li bir belge onunla derlenmez). `extra`: içe alınan
+    dosyalar ve projedeki .sty/.cls (yorumsuz)."""
+    for line in source.splitlines()[:MAGIC_LINES]:
+        if (m := _MAGIC.match(line)) and m.group(1).lower() in ENGINES:
+            return m.group(1).lower()
+    code = _code(source) + "\n" + extra
     if re.search(r"\\(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{[^}]*\b(?:luacode|luatexbase|"
                  r"luaotfload)\b", code) or "\\directlua" in code:
         return "lualatex"
@@ -194,7 +325,7 @@ class TexError:
 
 _FILE_LINE = re.compile(r"^(?P<file>(?:\.{1,2}[\\/]|[A-Za-z]:[\\/])?[^\s:][^:\n]*?\.(?:tex|sty|"
                         r"cls|bbl|aux|toc|ldf|def|cfg|clo|fd|ltx|lbx|cbx|bbx)):(?P<line>\d+): "
-                        r"(?P<msg>.+)$")
+                        r"(?P<msg>.+)$", re.IGNORECASE)
 _CONTEXT = re.compile(r"^l\.(\d+)\s?(.*)$")
 # Paket hatasının devam satırları: "(fontspec)                 or LuaTeX ..."
 _CONTINUATION = re.compile(r"^\(([\w@.-]+)\)\s+(.*)$")
@@ -320,7 +451,8 @@ def log_warnings(log: str, *, bib_failed: bool = False) -> list[str]:
 # cleveref, biblatex ve \includegraphics[width=...] gibi yerlerde garip hatalara yol açar.
 _SHORTHAND_ERRORS = ("Missing \\endcsname inserted", "Missing number, treated as zero",
                      "keyval Error", "Package keyval Error", "Argument of \\@sect")
-_TURKISH_BABEL = re.compile(r"\\usepackage\s*\[([^\]]*\bturkish\b[^\]]*)\]\s*\{babel\}")
+_BABEL = re.compile(r"\\usepackage\s*(?:\[([^\]]*)\])?\s*\{[^}]*\bbabel\b[^}]*\}")
+_CLASS_OPTS = re.compile(r"\\documentclass\s*\[([^\]]*)\]")
 
 
 def babel_shorthand_hint(sources: list[str], errors: list[TexError], log: str) -> str | None:
@@ -330,8 +462,15 @@ def babel_shorthand_hint(sources: list[str], errors: list[TexError], log: str) -
     if not suspicious:
         return None
     for text in sources:
-        m = _TURKISH_BABEL.search(_code(text))
-        if m and "shorthands" not in m.group(1):
+        code = _code(text)
+        m = _BABEL.search(code)
+        if not m:
+            continue
+        opts = m.group(1) or ""
+        cls = _CLASS_OPTS.search(code)
+        # Türkçe babel'e ya da sınıfa verilebilir: \documentclass[turkish]{...}\usepackage{babel}
+        if re.search(r"\bturkish\b", opts + "," + (cls.group(1) if cls else "")) and \
+                "shorthands" not in opts:
             return ("Türkçe babel'in kısaltmaları (= : ! karakterleri) bu hatalara yol açıyor "
                     "olabilir: \\usepackage[turkish,shorthands=off]{babel} yazmayı dene.")
     return None
@@ -361,9 +500,10 @@ def _bitmap_font_warning(pdf: Path) -> list[str]:
 MAX_PASSES = 5
 _RERUN = re.compile(r"Rerun to get|Label\(s\) may have changed|Please rerun LaTeX|"
                     r"Rerun LaTeX|Table widths have changed", re.IGNORECASE)
-# biblatex "Please (re)run Biber ... and rerun LaTeX afterwards" der; biber zaten çalıştı (ya da
-# başarısız oldu), yalnız TeX'i yeniden çalıştırmak bir şey değiştirmez.
-_BIBER_REQUEST = re.compile(r"Please \(re\)run Biber.*?afterwards", re.DOTALL)
+# biblatex "Please (re)run Biber on the file: / (biblatex) main / (biblatex) and rerun LaTeX
+# afterwards." der; biber zaten çalıştı (ya da başarısız oldu), yalnız TeX'i yeniden çalıştırmak
+# bir şey değiştirmez. Yalnız bu uyarının kendi satırları atılır (araya giren başka uyarı değil).
+_BIBER_REQUEST = re.compile(r"Please \(re\)run Biber on the file:(?:\n\(biblatex\)[^\n]*){1,4}")
 
 
 def _needs_rerun(log: str) -> bool:
@@ -371,6 +511,8 @@ def _needs_rerun(log: str) -> bool:
 
 
 _BIBDATA = re.compile(r"\\bibdata\{")
+# TeX dosya adı olarak almadığı başlangıçlar: seçenek (-), biçim dosyası (&), ini kipi (*).
+_UNSAFE_MAIN_START = ("-", "&", "*", "\\")
 
 
 class _Runner:
@@ -392,16 +534,22 @@ class _Runner:
     def tool(self, name: str) -> Path | None:
         return engines.latex_engine_path(self.tex_path, name)
 
-    def run(self, exe: Path, args: list[str], label: str) -> tuple[int, str]:
+    def remaining(self, limit: float | None = None) -> float:
+        """Kalan süre (en çok `limit`); bittiyse `proc.TimedOut`."""
+        left = self.deadline - time.monotonic()
+        if left <= 0:
+            raise proc.TimedOut()
+        return min(left, limit) if limit else left
+
+    def run(self, exe: Path, args: list[str], label: str,
+            env: dict[str, str] | None = None) -> tuple[int, str]:
         self.steps += 1
         self.report(min(0.9, 0.05 + 0.13 * self.steps), f"{label} ({self.steps}. adım)")
-        remaining = self.deadline - time.monotonic()
-        if remaining <= 0:
-            raise proc.TimedOut()
         try:
             # stdin kapalı: TeX hiçbir durumda girdi beklerken takılmasın.
-            return proc.run_lines([str(exe), *args], timeout=remaining, on_line=lambda _l: None,
-                                  cwd=self.cwd, env=self.env, stdin=subprocess.DEVNULL)
+            return proc.run_lines([str(exe), *args], timeout=self.remaining(),
+                                  on_line=lambda _l: None, cwd=self.cwd, env=env or self.env,
+                                  stdin=subprocess.DEVNULL)
         except FileNotFoundError as e:
             raise TooliaError(f"{exe.name} başlatılamadı: {exe}") from e
 
@@ -415,9 +563,27 @@ class _Runner:
         return self.run(exe, [*args, main.name], exe.stem)
 
 
-def _read_log(main: Path) -> str:
+def _read_log(main: Path, unwrap: bool = False) -> str:
     p = main.with_suffix(".log")
-    return p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
+    text = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
+    return _unwrap(text) if unwrap else text
+
+
+def _unwrap(log: str, width: int = 79) -> str:
+    """TeX günlük satırlarını `width` karakterde böler (MiKTeX'in lualatex'i -max-print-line
+    almıyor); tam `width` uzunluğundaki satırı sonrakiyle birleştirir."""
+    out: list[str] = []
+    carry = ""
+    for line in log.splitlines():
+        line = carry + line
+        if len(line) % width == 0 and line:
+            carry = line
+            continue
+        carry = ""
+        out.append(line)
+    if carry:
+        out.append(carry)
+    return "\n".join(out)
 
 
 # --- MiKTeX ayarları ---------------------------------------------------------------------------
@@ -425,31 +591,38 @@ def _read_log(main: Path) -> str:
 # yazı tipiyle çıkar, yakınlaştırınca bulanık görünür. MiKTeX'in "eksik paketi kur" ayarı da
 # "önce sor" olabilir; motorlara --enable-installer verilir, bibtex/biber için ayar da açılır.
 
-_CM_SUPER_CHECKED: set[str] = set()
+_CM_SUPER_LOCK = threading.Lock()
+_CM_SUPER_CHECKED: set[str] = set()  # kurulu olduğu bilinen (ya da bilinemeyen) TeX'ler
+_CM_SUPER_FAILED: dict[str, float] = {}  # başarısız denemenin zamanı: hemen yeniden denenmez
+CM_SUPER_RETRY_S = 60 * 60
 
 
-def has_cm_super(tex: Path) -> bool | None:
+def has_cm_super(tex: Path, timeout: float = 30) -> bool | None:
     """cm-super kurulu mu? Bilinemiyorsa None."""
     kpse = engines.latex_engine_path(tex, "kpsewhich")
     if kpse is None:
         return None
     try:
-        r = proc.run([str(kpse), "sfrm1000.pfb"], timeout=30, stdin=subprocess.DEVNULL)
+        r = proc.run([str(kpse), "sfrm1000.pfb"], timeout=timeout, stdin=subprocess.DEVNULL)
     except (proc.TimedOut, OSError):
         return None
     return r.returncode == 0 and bool((r.stdout or b"").strip())
 
 
 def install_miktex_package(tex: Path, package: str, timeout: float = 15 * 60) -> bool:
-    """MiKTeX paketini kurar (zaten kuruluysa da True)."""
+    """MiKTeX paketini kurar (zaten kuruluysa da True). `timeout` bütün denemeler için toplam."""
+    deadline = time.monotonic() + timeout
     attempts = []
     if miktex := engines.latex_engine_path(tex, "miktex"):
         attempts.append([str(miktex), "packages", "install", package])
     if mpm := engines.latex_engine_path(tex, "mpm"):
         attempts.append([str(mpm), f"--install={package}"])
     for args in attempts:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            break
         try:
-            r = proc.run(args, timeout=timeout, stdin=subprocess.DEVNULL)
+            r = proc.run(args, timeout=left, stdin=subprocess.DEVNULL)
         except (proc.TimedOut, OSError):
             continue
         text = ((r.stdout or b"") + (r.stderr or b"")).decode("utf-8", "replace").lower()
@@ -473,7 +646,8 @@ def configure_miktex(tex: Path) -> list[str]:
     if not install_miktex_package(tex, "cm-super"):
         notes.append(CM_SUPER_HINT)
     else:
-        _CM_SUPER_CHECKED.add(str(tex))
+        with _CM_SUPER_LOCK:
+            _CM_SUPER_CHECKED.add(str(tex))
     # biber ilk çalıştırmada kendini açar (~100 MB, birkaç dakika); bunu kurulumda yapalım ki
     # ilk kaynakçalı derleme takılmış gibi görünmesin. Başarısızlığı önemsiz.
     if biber := engines.latex_engine_path(tex, "biber"):
@@ -487,28 +661,45 @@ CM_SUPER_HINT = ("cm-super yazı tipleri kurulamadı; T1 kodlamalı belgeler bul
 
 
 def _ensure_cm_super(runner: _Runner) -> list[str]:
-    """MiKTeX'te cm-super yoksa ilk pdfLaTeX derlemesinden önce bir kez kurmayı dener."""
+    """MiKTeX'te cm-super yoksa pdfLaTeX derlemesinden önce kurmayı dener. Kilit: aynı anda iki
+    iş kurmaya çalışmasın, ikinci iş kurulum bitene kadar beklesin. Başarısız deneme bir saat
+    içinde yinelenmez; başarı ya da "zaten kurulu" kalıcıdır."""
     key = str(runner.tex_path)
-    if not runner.miktex or key in _CM_SUPER_CHECKED:
+    if not runner.miktex:
         return []
-    _CM_SUPER_CHECKED.add(key)
-    if has_cm_super(runner.tex_path) is not False:
-        return []
-    runner.report(0.03, "Yazı tipleri (cm-super) kuruluyor; yalnız ilk seferde")
-    return [] if install_miktex_package(runner.tex_path, "cm-super") else [CM_SUPER_HINT]
+    with _CM_SUPER_LOCK:
+        if key in _CM_SUPER_CHECKED:
+            return []
+        if time.monotonic() - _CM_SUPER_FAILED.get(key, -CM_SUPER_RETRY_S) < CM_SUPER_RETRY_S:
+            return [CM_SUPER_HINT]
+        present = has_cm_super(runner.tex_path, timeout=runner.remaining(30))
+        if present is not False:
+            _CM_SUPER_CHECKED.add(key)
+            return []
+        runner.report(0.03, "Yazı tipleri (cm-super) kuruluyor; yalnız ilk seferde")
+        if install_miktex_package(runner.tex_path, "cm-super",
+                                  timeout=runner.remaining(15 * 60)):
+            _CM_SUPER_CHECKED.add(key)
+            _CM_SUPER_FAILED.pop(key, None)
+            return []
+        _CM_SUPER_FAILED[key] = time.monotonic()
+        return [CM_SUPER_HINT]
 
 
 # --- EPS şekiller ------------------------------------------------------------------------------
 # pdfLaTeX / LuaLaTeX EPS'yi okuyamaz; epstopdf paketi çevirmek için kabuk komutu ister, o da
 # kapalı. epstopdf, çevrilmiş dosya (`ad-eps-converted-to.pdf`) zaten varsa onu kullanır: biz
-# Ghostscript ile (-dSAFER) önceden çeviririz.
+# Ghostscript ile (-dSAFER) önceden çeviririz. Yollar mutlak verilir (ad `-` ya da `@` ile
+# başlasa da seçenek sanılmasın); `%` içeren çıktı adı Ghostscript'te sayfa biçimi olarak
+# açıldığı için önce geçici adla yazılıp taşınır.
 
 MAX_EPS = 200
+EPS_TIMEOUT_S = 120
 
 
 def _convert_eps(root: Path, ghostscript: str | Path | None, runner: _Runner) -> list[str]:
     eps_files = [p for p in root.rglob("*") if p.suffix.lower() == ".eps" and p.is_file()]
-    todo = [p for p in eps_files
+    todo = [p.resolve() for p in eps_files
             if not p.with_name(p.stem + "-eps-converted-to.pdf").exists()]
     if not todo:
         return []
@@ -517,17 +708,27 @@ def _convert_eps(root: Path, ghostscript: str | Path | None, runner: _Runner) ->
                 "→ Motorlar). EPS şekiller PDF'te eksik olabilir."]
     failed = []
     runner.report(0.03, f"{len(todo)} EPS şekil PDF'e çevriliyor")
-    for eps in todo[:MAX_EPS]:
+    for i, eps in enumerate(todo[:MAX_EPS]):
         target = eps.with_name(eps.stem + "-eps-converted-to.pdf")
+        tmp = target if "%" not in str(target) else eps.with_name(f"toolia-eps-{i}.pdf")
         try:
             r = proc.run([str(ghostscript), "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-dEPSCrop",
-                          "-sDEVICE=pdfwrite", f"-sOutputFile={target}", str(eps)],
-                         timeout=120, stdin=subprocess.DEVNULL, cwd=eps.parent)
-            if r.returncode != 0 or not _valid_pdf(target):
+                          "-sDEVICE=pdfwrite", f"-sOutputFile={tmp}", str(eps)],
+                         timeout=runner.remaining(EPS_TIMEOUT_S), stdin=subprocess.DEVNULL,
+                         cwd=eps.parent)
+            if r.returncode != 0 or not _valid_pdf(tmp):
                 failed.append(eps.name)
-                target.unlink(missing_ok=True)
-        except (proc.TimedOut, OSError):
+            elif tmp != target:
+                os.replace(tmp, target)
+        except OSError:
             failed.append(eps.name)
+        except proc.TimedOut:
+            tmp.unlink(missing_ok=True)
+            if runner.deadline <= time.monotonic():
+                raise
+            failed.append(eps.name)
+        if eps.name in failed:
+            tmp.unlink(missing_ok=True)
             target.unlink(missing_ok=True)
     notes = []
     if failed:
@@ -546,7 +747,10 @@ def compile_project(root: Path, main: Path, out: Path, *, tex: str | Path,
     şekilleri PDF'e çevirmek için."""
     report = on_progress or (lambda _f, _m: None)
     tex = Path(tex)
-    chosen = pick_engine(_read(main)) if engine == "auto" else engine
+    if main.name.startswith(_UNSAFE_MAIN_START) or "%" in main.name:
+        raise TooliaError(f"Ana dosyanın adı '{main.name}' TeX'te seçenek gibi okunur; dosyayı "
+                          "yeniden adlandır ('-', '&', '*' ile başlamasın, '%' içermesin).")
+    chosen = pick_engine(_read(main), _engine_sources(main)) if engine == "auto" else engine
     if chosen not in ENGINES:
         raise TooliaError(f"Bilinmeyen LaTeX motoru: {engine}")
     runner = _Runner(tex, main.parent, report)
@@ -554,41 +758,55 @@ def compile_project(root: Path, main: Path, out: Path, *, tex: str | Path,
     if exe is None:
         raise TooliaError(f"{chosen} bu bilgisayarda yok; TeX dağıtımına ekle ya da başka "
                           "motor seç.")
+    unwrap = chosen == "lualatex" and runner.miktex
     aux = _AuxState()
     pdf = main.with_suffix(".pdf")
+    # Eski PDF (zip'le gelmiş ya da önceki derlemeden kalmış) bu derlemenin çıktısı sanılmasın:
+    # kenara alınır; derleme PDF üretemezse yerine geri konur (CLI yerinde derlemede kaybolmasın).
+    stale = pdf.with_name(pdf.name + ".toolia-eski")
+    if pdf.exists():
+        os.replace(pdf, stale)
     try:
-        if chosen != "xelatex":  # XeLaTeX EPS'yi kendisi (xdvipdfmx) çevirir
-            aux.notes += _convert_eps(root, ghostscript, runner)
-        if chosen == "pdflatex":
-            aux.notes += _ensure_cm_super(runner)
-        code, tail = runner.tex(exe, main)
-        passes = 1
-        log = _read_log(main)
-        if _valid_pdf(pdf):  # ölümcül hatada yeniden denemenin anlamı yok
-            rerun = _aux_tools(runner, main, log, aux) or _needs_rerun(log)
-            while rerun and passes < MAX_PASSES:
-                code, tail = runner.tex(exe, main)
-                passes += 1
-                log = _read_log(main)
-                # Yeni dizin dosyası çıktıysa (ilk geçişte yazılmamış) bir kez daha işle.
-                rerun = _aux_tools(runner, main, log, aux, only_new=True) or _needs_rerun(log)
-    except proc.TimedOut:
-        raise TooliaError(f"LaTeX derlemesi {TIMEOUT_S // 60} dakikada bitmedi. Belgede sonsuz "
-                          "döngü olabilir ya da MiKTeX çok sayıda paket indiriyordur; yeniden "
-                          "dene.") from None
+        try:
+            if chosen != "xelatex":  # XeLaTeX EPS'yi kendisi (xdvipdfmx) çevirir
+                aux.notes += _convert_eps(root, ghostscript, runner)
+            if chosen == "pdflatex":
+                aux.notes += _ensure_cm_super(runner)
+            code, tail = runner.tex(exe, main)
+            passes = 1
+            log = _read_log(main, unwrap)
+            if _valid_pdf(pdf):  # ölümcül hatada yeniden denemenin anlamı yok
+                rerun = _aux_tools(runner, main, log, aux) or _needs_rerun(log)
+                while rerun and passes < MAX_PASSES:
+                    code, tail = runner.tex(exe, main)
+                    passes += 1
+                    log = _read_log(main, unwrap)
+                    # Yeni dizin dosyası çıktıysa (ilk geçişte yazılmamış) bir kez daha işle.
+                    rerun = (_aux_tools(runner, main, log, aux, only_new=True)
+                             or _needs_rerun(log))
+        except proc.TimedOut:
+            raise TooliaError(f"LaTeX derlemesi {TIMEOUT_S // 60} dakikada bitmedi. Belgede "
+                              "sonsuz döngü olabilir ya da MiKTeX çok sayıda paket indiriyordur; "
+                              "yeniden dene.") from None
 
-    errors = parse_errors(log, main.parent)
-    tex_sources = [_read(p) for p in root.rglob("*.tex") if p.is_file()][:200]
-    hint = babel_shorthand_hint(tex_sources, errors, log)
-    if not _valid_pdf(pdf):
-        logger.info("LaTeX PDF üretmedi (%s, çıkış %s). Çıktının sonu:\n%s", main.name, code,
-                    tail)
-        if errors:
-            raise TooliaError("LaTeX derlenemedi. " + str(errors[0])
-                              + (f" (+{len(errors) - 1} hata daha)" if len(errors) > 1 else "")
-                              + (f" {hint}" if hint else ""))
-        detail = _tail_hint(tail)
-        raise TooliaError("LaTeX derlenemedi; PDF üretilmedi." + (f" {detail}" if detail else ""))
+        errors = parse_errors(log, main.parent)
+        hint = babel_shorthand_hint([_read(p) for p in _tex_files(root)][:200], errors, log)
+        if not _valid_pdf(pdf):
+            logger.info("LaTeX PDF üretmedi (%s, çıkış %s). Çıktının sonu:\n%s", main.name,
+                        code, tail)
+            if errors:
+                raise TooliaError("LaTeX derlenemedi. " + str(errors[0])
+                                  + (f" (+{len(errors) - 1} hata daha)" if len(errors) > 1
+                                     else "") + (f" {hint}" if hint else ""))
+            detail = _tail_hint(tail)
+            raise TooliaError("LaTeX derlenemedi; PDF üretilmedi."
+                              + (f" {detail}" if detail else ""))
+    except BaseException:
+        pdf.unlink(missing_ok=True)
+        if stale.exists():
+            os.replace(stale, pdf)
+        raise
+    stale.unlink(missing_ok=True)
     if pdf.resolve() != Path(out).resolve():
         shutil.move(str(pdf), out)
     warnings = []
@@ -600,9 +818,12 @@ def compile_project(root: Path, main: Path, out: Path, *, tex: str | Path,
     warnings += aux.notes + log_warnings(log, bib_failed=aux.bib_failed)
     if chosen == "pdflatex":
         warnings += _bitmap_font_warning(out)
-    if any((main.parent / n).is_file() for n in ("latexmkrc", ".latexmkrc")):
-        warnings.append("Projedeki latexmkrc okunmadı (Perl kodu çalıştırılmaz); özel derleme "
-                        "kuralı gerekiyorsa PDF eksik olabilir.")
+    ignored = [n for n in ("latexmkrc", ".latexmkrc", "biber.conf", ".biber.conf")
+               if (main.parent / n).is_file()]
+    if ignored:
+        warnings.append(f"Projedeki {', '.join(ignored)} okunmadı (güvenlik: çalıştırılabilir "
+                        "kod ya da dosya yolu içerebilir); özel derleme ayarı gerekiyorsa PDF "
+                        "eksik olabilir.")
     return TexResult(out, main.relative_to(root).as_posix(), chosen, warnings)
 
 
@@ -613,7 +834,9 @@ class _AuxState:
     indexes_done: set[str] = field(default_factory=set)
 
 
-_SAFE_NAME = re.compile(r"^[\w.-]+$")
+# Belgeden gelen ad (dizin, stil, sözlük uzantısı): harf/rakam/alt çizgiyle başlar, klasör içermez.
+_SAFE_NAME = re.compile(r"^[A-Za-z0-9_][\w.-]*$")
+_SAFE_EXT = re.compile(r"^[A-Za-z0-9]{1,10}$")
 # imakeidx (kabuk komutu kapalıyken) ne çalıştırılacağını yazar:
 #   ... Remember to run (pdf)latex again after calling `makeindex -s x.ist kisiler.idx'.
 _IMAKEIDX = re.compile(r"after calling\s+[`']makeindex\s+([^'\n]+)'")
@@ -647,6 +870,79 @@ def _index_jobs(main: Path, log: str) -> list[tuple[str, list[str]]]:
     return [(name, opts) for name, opts in jobs.items() if (main.parent / name).is_file()]
 
 
+_NEWGLOSSARY = re.compile(r"\\@newglossary\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}")
+_ISTFILE = re.compile(r"\\@istfilename\{([^}]*)\}")
+
+
+def _glossary_jobs(main: Path) -> tuple[list[list[str]], list[str]]:
+    """glossaries paketinin sözlükleri için makeindex argümanları, `.aux`'tan. makeglossaries-lite
+    yerine: o, `.aux`'taki program adını ve seçenekleri kabuğa veriyordu (K1). Burada yalnız
+    sözlük uzantıları ve klasörsüz `.ist` adı alınır; program adı ve ek seçenekler yok sayılır.
+    Dönüş: (argüman listeleri, uyarılar)."""
+    aux = main.with_suffix(".aux")
+    text = aux.read_text(encoding="utf-8", errors="replace") if aux.is_file() else ""
+    entries = _NEWGLOSSARY.findall(text)
+    if not entries:
+        return [], []
+    notes = []
+    styles = _ISTFILE.findall(text)
+    style = styles[-1].strip() if styles else ""
+    if style.lower().endswith(".xdy"):
+        return [], ["Sözlük xindy ile ayarlanmış (xindy kullanılmıyor); sözlük boş kalabilir. "
+                    "\\makeglossaries öncesinde xindy seçeneğini kaldır."]
+    if style and not (_SAFE_NAME.match(style) and (main.parent / style).is_file()):
+        return [], [f"Sözlük stil dosyası güvenli bir ad değil ya da yok ({style}); sözlük "
+                    "oluşturulmadı."]
+    jobs = []
+    letter = "\\@glsorder{letter}" in text
+    for _name, log_ext, out_ext, in_ext in entries:
+        exts = (log_ext.strip(), out_ext.strip(), in_ext.strip())
+        if not all(_SAFE_EXT.match(e) for e in exts):
+            notes.append(f"Sözlük uzantısı güvenli değil ({', '.join(exts)}); atlandı.")
+            continue
+        if not main.with_suffix("." + exts[2]).is_file():
+            continue
+        args = ["-l"] if letter else []
+        if style:
+            args += ["-s", style]
+        args += ["-t", f"{main.stem}.{exts[0]}", "-o", f"{main.stem}.{exts[1]}",
+                 f"{main.stem}.{exts[2]}"]
+        jobs.append(args)
+    return jobs, notes
+
+
+# biber .bcf'teki kaynakları indirebilir ve mutlak yoldan okuyabilir. Yalnız projedeki göreli
+# dosyalara izin verilir.
+_DATASOURCE = re.compile(r"<bcf:datasource\b([^>]*)>([^<]*)</bcf:datasource>")
+_URL_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
+
+
+def unsafe_bib_sources(bcf: Path) -> list[str]:
+    """`.bcf`'teki uzak, mutlak, UNC ya da `..` içeren kaynaklar."""
+    text = bcf.read_text(encoding="utf-8", errors="replace") if bcf.is_file() else ""
+    if "<!DOCTYPE" in text or "<!ENTITY" in text:
+        return ["(.bcf içinde DOCTYPE/ENTITY)"]
+    bad = []
+    for _attrs, raw in _DATASOURCE.findall(text):
+        src = html.unescape(raw).strip()
+        norm = src.replace("\\", "/")
+        if (_URL_SCHEME.match(norm) or norm.startswith("/") or ".." in norm.split("/")
+                or not src):
+            bad.append(src or "(boş)")
+    return bad
+
+
+def _biber_env(runner: _Runner) -> dict[str, str]:
+    """Derinlemesine savunma: biber'in HTTP istemcisi bir şekilde çalışırsa da dışarı çıkmasın."""
+    env = dict(runner.env)
+    dead = "http://127.0.0.1:9"
+    for key in ("HTTP_PROXY", "HTTPS_PROXY", "FTP_PROXY", "ALL_PROXY",
+                "http_proxy", "https_proxy", "ftp_proxy", "all_proxy"):
+        env[key] = dead
+    env["NO_PROXY"] = env["no_proxy"] = ""
+    return env
+
+
 def _bib_errors(blg: Path, biber: bool) -> list[str]:
     text = blg.read_text(encoding="utf-8", errors="replace") if blg.is_file() else ""
     if biber:
@@ -661,6 +957,34 @@ def _bib_errors(blg: Path, biber: bool) -> list[str]:
             if re.search(r"---line \d+ of file|I couldn't open|I found no", ln)]
 
 
+def _run_biber(runner: _Runner, main: Path, state: _AuxState) -> bool:
+    bad = unsafe_bib_sources(main.with_suffix(".bcf"))
+    if bad:
+        state.bib_failed = True
+        shown = ", ".join(bad[:3]) + (" …" if len(bad) > 3 else "")
+        state.notes.append("Kaynakça oluşturulmadı: biblatex kaynağı proje dışını gösteriyor "
+                           f"({shown}). Güvenlik için yalnız projedeki .bib dosyaları "
+                           "kullanılır; uzak (location=remote) ve mutlak yollu kaynakları "
+                           ".bib olarak projeye ekle.")
+        return False
+    biber = runner.tool("biber")
+    if not biber:
+        state.notes.append("biber bulunamadı; kaynakça boş kalabilir (biblatex biber ister).")
+        return False
+    stem = main.stem
+    # --noconf: projedeki biber.conf çıktı yolunu değiştirebiliyordu (K2). --output-file komut
+    # satırında: .bcf'teki seçenekler de onu geçersiz kılamasın.
+    code, _ = runner.run(biber, ["--noconf", f"--output-file={stem}.bbl", "--", stem],
+                         "biber (ilk çalıştırmada birkaç dakika sürebilir)",
+                         env=_biber_env(runner))
+    if code != 0:
+        state.bib_failed = True
+        errs = _bib_errors(main.with_suffix(".blg"), biber=True)
+        state.notes.append("Kaynakça oluşturulamadı (biber): "
+                           + (errs[0] if errs else f"çıkış kodu {code}"))
+    return True
+
+
 def _aux_tools(runner: _Runner, main: Path, log: str, state: _AuxState, *,
                only_new: bool = False) -> bool:
     """Kaynakça (biber ya da bibtex), dizinler (makeindex), sözlük ve kısaltma listesi. Bir şey
@@ -669,18 +993,7 @@ def _aux_tools(runner: _Runner, main: Path, log: str, state: _AuxState, *,
     stem = main.stem
     if not only_new:
         if main.with_suffix(".bcf").is_file():  # biblatex
-            if biber := runner.tool("biber"):
-                code, _ = runner.run(biber, [stem],
-                                     "biber (ilk çalıştırmada birkaç dakika sürebilir)")
-                ran = True
-                if code != 0:
-                    state.bib_failed = True
-                    errs = _bib_errors(main.with_suffix(".blg"), biber=True)
-                    state.notes.append("Kaynakça oluşturulamadı (biber): "
-                                       + (errs[0] if errs else f"çıkış kodu {code}"))
-            else:
-                state.notes.append("biber bulunamadı; kaynakça boş kalabilir (biblatex biber "
-                                   "ister).")
+            ran = _run_biber(runner, main, state)
         else:
             aux = main.with_suffix(".aux")
             text = aux.read_text(encoding="utf-8", errors="replace") if aux.is_file() else ""
@@ -705,22 +1018,17 @@ def _aux_tools(runner: _Runner, main: Path, log: str, state: _AuxState, *,
             ran = True
     if only_new:
         return ran
-    # glossaries: makeglossaries Perl ister; makeglossaries-lite (texlua) ya da makeindex.
-    if main.with_suffix(".glo").is_file() or main.with_suffix(".acn").is_file():
-        if lite := runner.tool("makeglossaries-lite"):
-            runner.run(lite, [stem], "makeglossaries")
-            ran = True
-        elif makeindex and main.with_suffix(".ist").is_file():
-            for src, out, glg in ((".glo", ".gls", ".glg"), (".acn", ".acr", ".alg")):
-                if main.with_suffix(src).is_file():
-                    runner.run(makeindex, ["-s", stem + ".ist", "-t", stem + glg,
-                                           "-o", stem + out, stem + src], "makeindex")
-            ran = True
-        else:
-            state.notes.append("Sözlük (glossaries) için makeglossaries-lite bulunamadı; sözlük "
-                               "boş kalabilir.")
+    # glossaries: makeglossaries(-lite) yok (K1); sözlükler .aux'tan, makeindex kabuksuz.
+    jobs, notes = _glossary_jobs(main)
+    state.notes += notes
+    if jobs and not makeindex:
+        state.notes.append("Sözlük için makeindex bulunamadı; sözlük boş kalabilir.")
+    elif jobs:
+        for args in jobs:
+            runner.run(makeindex, args, "makeindex (sözlük)")
+        ran = True
     if main.with_suffix(".nlo").is_file() and makeindex:  # nomencl
-        runner.run(makeindex, [stem + ".nlo", "-s", "nomencl.ist", "-o", stem + ".nls"],
+        runner.run(makeindex, ["-s", "nomencl.ist", "-o", stem + ".nls", stem + ".nlo"],
                    "makeindex")
         ran = True
     return ran

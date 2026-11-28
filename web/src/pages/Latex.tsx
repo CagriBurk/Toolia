@@ -7,10 +7,7 @@ import PageHeader from "../components/PageHeader";
 import { useFiles, useJob } from "../hooks";
 import { t } from "../i18n";
 import { idsFrom, type Route } from "../router";
-import { ACCEPT } from "../tools";
-
-// Proje zip'i ya da ana .tex ile yanındakiler: resimler, PDF şekiller, .bib, veri dosyaları.
-const KINDS: FileMeta["kind"][] = ["tex", "zip", "image", "pdf", "text", "office", "other"];
+import { ACCEPT, LATEX_KINDS as KINDS } from "../tools";
 
 type TexEngine = "auto" | "pdflatex" | "xelatex" | "lualatex";
 const ENGINES: [TexEngine, string][] = [
@@ -23,6 +20,8 @@ const ENGINES: [TexEngine, string][] = [
 interface Props {
   route: Route;
   engines: EnginesResponse | null;
+  /** Bilgisayarın kendisinden mi açıldı; telefonda false (derleme ve kurulum kapalı), ayarlar gelene dek undefined. */
+  local?: boolean;
   onEnginesChanged: () => void;
 }
 
@@ -34,7 +33,7 @@ function mainHint(files: FileMeta[]): string {
   return "";
 }
 
-export default function Latex({ route, engines, onEnginesChanged }: Props) {
+export default function Latex({ route, engines, local, onEnginesChanged }: Props) {
   const initial = useFiles(idsFrom(route));
   const [files, setFiles] = useState<FileMeta[]>([]);
   const [engine, setEngine] = useState<TexEngine>("auto");
@@ -44,6 +43,7 @@ export default function Latex({ route, engines, onEnginesChanged }: Props) {
   const tex = engines?.engines.find((e) => e.key === "latex");
   const hasSource = files.some((f) => f.kind === "zip" || f.name.toLowerCase().endsWith(".tex"));
   const hint = mainHint(files);
+  const phone = local === false;
 
   useEffect(() => {
     if (initial.files.length) setFiles(initial.files.filter((f) => KINDS.includes(f.kind)));
@@ -54,10 +54,15 @@ export default function Latex({ route, engines, onEnginesChanged }: Props) {
       <PageHeader title="LaTeX → PDF" />
       <div className="tool-layout">
         <div className="tool-main">
-          {tex && !tex.ok && (
-            <div className="banner error">
+          {phone && (
+            <div className="banner error" role="alert">
+              {t("LaTeX derlemesi yalnızca bu bilgisayardan yapılabilir; telefon modunda kapalı.")}
+            </div>
+          )}
+          {!phone && tex && !tex.ok && (
+            <div className="banner error" role="alert">
               {tex.available ? tex.problems[0] : t("LaTeX (MiKTeX ya da TeX Live) bulunamadı; .tex dosyaları derlenemez.")}
-              {engines?.windows && !tex.available ? (
+              {local && engines?.windows && !tex.available ? (
                 <InstallEngine engine="miktex" onInstalled={onEnginesChanged} />
               ) : (
                 tex.install_hint && <code className="small">{tex.install_hint}</code>
@@ -90,7 +95,12 @@ export default function Latex({ route, engines, onEnginesChanged }: Props) {
             <h2>{t("Seçenekler")}</h2>
             <label className="field">
               {t("Derleyici")}
-              <select className="input" value={engine} onChange={(e) => setEngine(e.target.value as TexEngine)}>
+              <select
+                className="input"
+                value={engine}
+                aria-describedby="latex-derleyici-ipucu"
+                onChange={(e) => setEngine(e.target.value as TexEngine)}
+              >
                 {ENGINES.map(([value, label]) => (
                   <option key={value} value={value}>
                     {t(label)}
@@ -98,14 +108,22 @@ export default function Latex({ route, engines, onEnginesChanged }: Props) {
                 ))}
               </select>
             </label>
-            <p className="muted small">
+            <p id="latex-derleyici-ipucu" className="muted small">
               {t("Otomatik: belgedeki % !TEX program satırına, yoksa paketlere bakar (fontspec → XeLaTeX). Overleaf'te Menü → Derleyici'de ne seçiliyse onu seçebilirsin.")}
             </p>
             {hint && (
               <label className="field">
                 {t("Ana dosya")}
-                <input className="input" placeholder={t("otomatik (ör. main.tex)")} value={main} onChange={(e) => setMain(e.target.value)} />
-                <span className="muted small">{hint}</span>
+                <input
+                  className="input"
+                  placeholder={t("otomatik (ör. main.tex)")}
+                  value={main}
+                  aria-describedby="latex-ana-dosya-ipucu"
+                  onChange={(e) => setMain(e.target.value)}
+                />
+                <span id="latex-ana-dosya-ipucu" className="muted small">
+                  {hint}
+                </span>
               </label>
             )}
             <label className="field">
@@ -122,7 +140,7 @@ export default function Latex({ route, engines, onEnginesChanged }: Props) {
             ]}
             note={t("Hata olsa da PDF üretilebiliyorsa üretilir ve hatalar uyarı olarak gösterilir. İlk derlemede eksik paketler indirileceği için biraz uzun sürebilir.")}
             label={job.running ? t("Derleniyor…") : t("PDF'e derle")}
-            disabled={!hasSource || job.running || (tex !== undefined && !tex.ok)}
+            disabled={phone || !hasSource || job.running || (tex !== undefined && !tex.ok)}
             busy={job.running}
             done={job.job?.status === "bitti"}
             onRun={() =>

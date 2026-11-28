@@ -19,7 +19,7 @@ import {
   Table,
   type LucideIcon,
 } from "lucide-react";
-import type { EngineKey } from "./api";
+import type { EngineKey, FileMeta } from "./api";
 
 export type ToolGroup = "Düzenle" | "Dönüştür" | "Ekle" | "Optimize ve güvenlik";
 
@@ -49,7 +49,7 @@ const DEFS: Omit<Tool, "tone">[] = [
   { id: "convert", title: "Biçim Dönüştür", description: "PDF, resim ve Office dosyalarını tek ekranda dönüştür (JPG ↔ PNG ↔ PDF, DOCX ↔ ODT, XLSX ↔ CSV…)", route: "donustur", group: "Dönüştür", icon: ArrowLeftRight },
   { id: "md", title: "Markdown → PDF", description: "Formüller, Obsidian callout'ları, kod renklendirme", route: "md", group: "Dönüştür", icon: FileCode, needs: ["browser"] },
   { id: "office", title: "Office → PDF", description: "Word, Excel, PowerPoint, ODT, RTF, HTML, TXT", route: "office", group: "Dönüştür", icon: FileText, needs: ["libreoffice"] },
-  { id: "latex", title: "LaTeX → PDF", description: "Overleaf projesi (.zip) ya da .tex dosyası; süre sınırı yok", route: "latex", group: "Dönüştür", icon: Sigma, needs: ["latex"] },
+  { id: "latex", title: "LaTeX → PDF", description: "Overleaf projesi (.zip) ya da .tex dosyası; Overleaf'in süre sınırı olmadan bilgisayarında derlenir", route: "latex", group: "Dönüştür", icon: Sigma, needs: ["latex"] },
   { id: "img2pdf", title: "Resim → PDF", description: "JPG, PNG, HEIC fotoğraflardan PDF", route: "resimden", group: "Dönüştür", icon: ImageIcon },
   { id: "pdf2img", title: "PDF → Resim", description: "Sayfaları PNG / JPG olarak çıkar", route: "resme", group: "Dönüştür", icon: Images },
   { id: "pdf2word", title: "PDF → Word", description: "Düzenlenebilir Word belgesi (.docx)", route: "word", group: "Dönüştür", icon: FileIcon },
@@ -126,6 +126,10 @@ export function commonConvertTargets(names: string[]): string[] {
   const [first, ...rest] = names.map(familyTargets);
   return first.filter((t) => rest.every((r) => r.includes(t)) && !names.every((n) => sameFormat(n) === t));
 }
+
+// LaTeX → PDF'in kabul ettiği türler: proje zip'i ya da ana .tex ile yanındakiler (resimler,
+// PDF şekiller, .bib, .csv / .txt veri dosyaları). Ana sayfa yönlendirmesi de bunu kullanır.
+export const LATEX_KINDS: FileMeta["kind"][] = ["tex", "zip", "image", "pdf", "text", "office", "other"];
 
 export const ACCEPT = {
   pdf: ".pdf,application/pdf",

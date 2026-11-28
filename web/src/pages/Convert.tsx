@@ -97,10 +97,12 @@ function universalNoTargetReason(files: FileMeta[]): string | null {
 interface Props {
   route: Route;
   engines: EnginesResponse | null;
+  /** Bilgisayarın kendisinden mi açıldı; kurulum düğmesi yalnız o zaman (telefondan kurulamaz). */
+  local?: boolean;
   onEnginesChanged: () => void;
 }
 
-export default function Convert({ route, engines, onEnginesChanged }: Props) {
+export default function Convert({ route, engines, local, onEnginesChanged }: Props) {
   const initial = useFiles(idsFrom(route));
   const [files, setFiles] = useState<FileMeta[]>([]);
   const [picked, setPicked] = useState(() => route.query.get("hedef") ?? "");
@@ -258,7 +260,7 @@ export default function Convert({ route, engines, onEnginesChanged }: Props) {
           {lo && !lo.ok && needsLo && (
             <div className="banner error">
               {t("LibreOffice bulunamadı; Word, Excel ve PowerPoint dosyaları çevrilemez. Resimler ve PDF'ler çevrilebilir.")}
-              {engines?.windows ? (
+              {local && engines?.windows ? (
                 <InstallLibreOffice onInstalled={onEnginesChanged} />
               ) : (
                 lo.install_hint && <code className="small">{lo.install_hint}</code>

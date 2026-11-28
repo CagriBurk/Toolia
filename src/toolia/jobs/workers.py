@@ -588,7 +588,7 @@ def repair(store, settings, req, report, tmp: Path, job_id) -> WorkResult:
 
 def tex_to_pdf(store, settings, req, report, tmp: Path, job_id) -> WorkResult:
     """LaTeX projesi (Overleaf .zip'i ya da ana .tex + yanındaki dosyalar) → tek PDF."""
-    from toolia.convert.latex import compile_project, extract_project, find_main
+    from toolia.convert.latex import ZipQuota, compile_project, extract_project, find_main
 
     if access.is_device():
         # TeX bilgisayardaki herhangi bir dosyayı okuyup PDF'e koyabilir (convert/latex.py).
@@ -599,18 +599,23 @@ def tex_to_pdf(store, settings, req, report, tmp: Path, job_id) -> WorkResult:
         raise TooliaError(status.problems[0] if status.problems else
                           "LaTeX bulunamadı. Ayarlar → Motorlar'dan MiKTeX'i kur ya da: "
                           + (status.install_hint or ""))
-    metas = [store.get(fid) for fid in req.files]
+    # Aynı dosya iki kez verilse de bir kez işlenir (aynı zip 500 kez = 500 GB olmasın).
+    metas = [store.get(fid) for fid in dict.fromkeys(req.files)]
     root = tmp / "proje"
     root.mkdir()
     zips = [m for m in metas if m.kind == "zip"]
     report(0.02, "Proje hazırlanıyor")
+    quota = ZipQuota()  # bütün zip'ler için ortak dosya sayısı ve bayt sınırı
     for m in zips:
-        extract_project(store.path(m.id), root, display_name=m.name)
+        extract_project(store.path(m.id), root, display_name=m.name, quota=quota)
     notes: list[str] = []
     for m in metas:
         if m.kind == "zip":
             continue
         dest = root / m.name
+        if dest.is_dir():
+            raise TooliaError(f"{m.name}: zip'te aynı adla bir klasör var; dosyayı yeniden "
+                              "adlandır.")
         if dest.exists():
             notes.append(f"{m.name} projede zaten vardı; yüklenen dosya kullanıldı.")
         shutil.copyfile(store.path(m.id), dest)
@@ -640,6 +645,9 @@ def install_engine(store, settings, req, report, tmp: Path, job_id) -> WorkResul
     Windows kurulum için izin (UAC) isteyebilir. Kurulum bitince motorlar yeniden taranır."""
     from toolia import proc
 
+    if access.is_device():
+        # İkinci katman: rota da reddeder (routes_jobs.py), ama çalışan kendi başına da güvenli.
+        raise TooliaError("Program kurulumu yalnızca bu bilgisayardan başlatılabilir.")
     label = ENGINE_LABELS[req.engine]
     winget = engines.find_on_path("winget")  # çalışma klasörüne bakmaz
     if not winget:

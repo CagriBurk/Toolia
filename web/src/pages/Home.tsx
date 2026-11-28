@@ -8,7 +8,7 @@ import { toggleFavorite, useFavorites } from "../favorites";
 import { useUpload } from "../hooks";
 import { t } from "../i18n";
 import { navigate } from "../router";
-import { commonConvertTargets, GROUP_TONE, GROUPS, TOOLS, type ToolGroup } from "../tools";
+import { commonConvertTargets, GROUP_TONE, GROUPS, LATEX_KINDS, TOOLS, type ToolGroup } from "../tools";
 
 type Query = Record<string, string | string[]>;
 type Dropped = Pick<FileMeta, "id" | "name" | "kind">;
@@ -33,8 +33,8 @@ export function homeRoute(files: Dropped[]): HomeRoute {
   if (all("pdf")) {
     return ids.length === 1 ? { type: "go", path: `duzenle/${ids[0]}` } : { type: "go", path: "birlestir", query: { dosya: ids } };
   }
-  // LaTeX projesi: zip ya da .tex, yanında resim / PDF şekiller / .bib.
-  if (files.some((f) => f.kind === "tex" || f.kind === "zip") && all("tex", "zip", "image", "pdf", "other")) {
+  // LaTeX projesi: zip ya da .tex, yanında resim / PDF şekiller / .bib / .csv / .txt (LaTeX aracının türleri).
+  if (files.some((f) => f.kind === "tex" || f.kind === "zip") && all(...LATEX_KINDS)) {
     return { type: "go", path: "latex", query: { dosya: ids } };
   }
   const pdfPath = all("image") ? "resimden" : all("office", "html", "text") ? "office" : null;

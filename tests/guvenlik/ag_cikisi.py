@@ -1,9 +1,11 @@
 """Ağ çıkışı ölçümü: "dosyalar internete çıkmaz" vaadi (GUVENLIK_PLANI.md, adım 4).
 
 Bütün dönüşüm türlerini sırayla çalıştırır; bu sırada bu sürecin ve bütün alt süreçlerinin
-(soffice, gswin64c, tesseract, Edge, Playwright) bağlantılarını izler. 127.0.0.1 / ::1 dışındaki
-her bağlantı raporlanır. Ayrıca System (PID 4) altında ölçüm sırasında YENİ açılan bağlantılar
-da raporlanır (SMB istemcisi çekirdektedir; bkz. adım 3).
+(soffice, gswin64c, tesseract, Edge, Playwright, pdflatex, biber) bağlantılarını izler.
+127.0.0.1 / ::1 dışındaki her bağlantı raporlanır. Ayrıca System (PID 4) altında ölçüm sırasında
+YENİ açılan bağlantılar da raporlanır (SMB istemcisi çekirdektedir; bkz. adım 3). Belgelerdeki
+`http://127.0.0.1:<port>` adresleri bir tuzağa gider: oraya gelen bağlantı da sızıntı sayılır.
+LaTeX adımları yalnız pdflatex bulunursa çalışır (biber uzak kaynağı: denetim K3).
 
 Elle çalıştırılır (pytest toplamaz):
     uv run python tests/guvenlik/ag_cikisi.py
@@ -14,6 +16,7 @@ from __future__ import annotations
 
 import contextlib
 import ipaddress
+import socket
 import sys
 import tempfile
 import threading
@@ -92,6 +95,42 @@ class Watch:
         time.sleep(2)
         self._stop.set()
         self._t.join()
+
+
+class LoopbackTrap:
+    """127.0.0.1'de dinleyen tuzak: `Watch` geri döngü bağlantılarını saymaz, ama belgedeki
+    `http://127.0.0.1:<port>/...` adresine (biber uzak kaynağı) gelen her bağlantı, aracın
+    ağa çıkmaya çalıştığını gösterir. Bağlantı hemen kapatılır; derleme beklemez."""
+
+    def __init__(self, watch: Watch) -> None:
+        self.watch = watch
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.bind(("127.0.0.1", 0))
+        self.sock.listen()
+        self.sock.settimeout(0.2)
+        self.port = self.sock.getsockname()[1]
+        self._stop = threading.Event()
+
+    def run(self) -> None:
+        while not self._stop.is_set():
+            try:
+                conn, addr = self.sock.accept()
+            except (TimeoutError, OSError):
+                continue
+            conn.close()
+            entry = (self.watch.step, "geri döngü tuzağı", f"127.0.0.1:{self.port} ← {addr[1]}")
+            if entry not in self.watch.found:
+                self.watch.found.append(entry)
+
+    def __enter__(self):
+        self._t = threading.Thread(target=self.run, daemon=True)
+        self._t.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        self._t.join()
+        self.sock.close()
 
 
 # --- girdiler ------------------------------------------------------------------------------
@@ -180,11 +219,62 @@ $$\\int_0^1 x^2\\,dx = \\tfrac13$$
 
 # --- adımlar --------------------------------------------------------------------------------
 
-def steps(f: dict[str, Path], out: Path) -> list[tuple[str, Callable[[], object]]]:
+LATEX_DOC = r"""\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\begin{document}
+Toolia ağ ölçümü: \LaTeX{} derlemesi.
+\end{document}
+"""
+
+# biber uzak kaynak (K3): adres düzeltmeden sonra hiç açılmamalı. `{port}` tuzağın portu.
+LATEX_REMOTE_BIB = r"""\documentclass{article}
+\usepackage[backend=biber]{biblatex}
+\addbibresource[location=remote]{http://127.0.0.1:{port}/x.bib}
+\addbibresource[location=remote]{http://TEST_NET/y.bib}
+\begin{document}
+Uzak kaynak denemesi \cite{x}.
+\printbibliography
+\end{document}
+"""
+
+
+def latex_steps(d: Path, out: Path, tex: str, gs: str | None,
+                trap_port: int) -> list[tuple[str, Callable[[], object]]]:
+    """LaTeX adımları (yalnız pdflatex bulunduysa). Her belge kendi klasöründe derlenir."""
+    from toolia.convert.latex import compile_project
+    from toolia.errors import TooliaError
+
+    def build(name: str, source: str, target: str) -> object:
+        root = d / name
+        root.mkdir(exist_ok=True)
+        main = root / "main.tex"
+        main.write_text(source, encoding="utf-8")
+        return compile_project(root, main, out / target, tex=tex, engine="pdflatex",
+                               ghostscript=gs)
+
+    def remote_bib() -> object:
+        source = (LATEX_REMOTE_BIB.replace("{port}", str(trap_port))
+                  .replace("TEST_NET", TEST_NET))
+        try:
+            return build("latex-bib", source, "bib.pdf")
+        except TooliaError as e:  # uzak kaynağı reddetmek de geçerli; ölçülen şey bağlantı
+            print(f"         (derleme reddedildi: {e})")
+            return None
+
+    return [
+        ("LaTeX → PDF (pdflatex)", lambda: build("latex", LATEX_DOC, "tex.pdf")),
+        ("LaTeX → PDF (biblatex + biber; uzak .bib kaynağı)", remote_bib),
+    ]
+
+
+def steps(f: dict[str, Path], out: Path,
+          trap_port: int | None = None) -> list[tuple[str, Callable[[], object]]]:
     s = load_settings()
     eng = {e.key: e.path for e in engines.detect_all(s)}
     so, br, tess, gs = eng.get("libreoffice"), eng.get("browser"), eng.get("tesseract"), \
         eng.get("ghostscript")
+    tex = eng.get("latex")
 
     from toolia.convert.html import print_html, print_text
     from toolia.convert.image_format import convert_image
@@ -198,6 +288,12 @@ def steps(f: dict[str, Path], out: Path) -> list[tuple[str, Callable[[], object]
     def md():
         with MarkdownPrinter(br, confine=True) as p:
             return p.convert(f["md"], out / "not.pdf")
+
+    tex_steps = []
+    if tex and trap_port is not None:
+        tex_steps = latex_steps(out.parent, out, tex, gs, trap_port)
+    else:
+        print("  atlandı        LaTeX (pdflatex bulunamadı)")
 
     return [
         ("PDF bilgisi / küçük resim (PyMuPDF)",
@@ -222,6 +318,7 @@ def steps(f: dict[str, Path], out: Path) -> list[tuple[str, Callable[[], object]
          lambda: print_html(f["html"], out / "h.pdf", browser_path=br, confine=True)),
         ("Metin → PDF (Edge)", lambda: print_text(f["txt"], out / "t.pdf", browser_path=br)),
         ("Markdown → PDF (Edge + KaTeX; uzak resimler)", md),
+        *tex_steps,
     ]
 
 
@@ -233,8 +330,8 @@ def main() -> int:
         f = make_inputs(d)
         watch = Watch()
         failed = []
-        with watch:
-            for name, fn in steps(f, out):
+        with watch, LoopbackTrap(watch) as trap:
+            for name, fn in steps(f, out, trap.port):
                 watch.step = name
                 t0 = time.time()
                 try:

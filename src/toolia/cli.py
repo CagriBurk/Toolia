@@ -230,17 +230,19 @@ def _is_our_server(url: str) -> bool:
 
 @app.command("motorlar")
 def motorlar(config: ConfigOpt = None) -> None:
-    """Dış araçların (LibreOffice, Tesseract, ...) durumunu gösterir."""
+    """Dış araçların (LibreOffice, Tesseract, ...) durumunu gösterir. Çıkış kodu 1: zorunlu
+    bir motor eksik. İsteğe bağlı motor (LaTeX) eksikse yalnız yazılır, kod 0 kalır."""
     settings = load_settings(config)
     any_missing = False
     for e in engines.detect_all(settings):
         # ASCII işaretler: çıktı bir dosyaya/borulara yönlendirildiğinde cp1254 bozulmasın.
         mark = "[OK]" if e.ok else ("[!!]" if e.available else "[--]")
-        line = f" {mark} {e.name:<16} {e.version or '-':<16} {e.needed_for}"
+        needed = f"{e.needed_for} (isteğe bağlı)" if e.optional else e.needed_for
+        line = f" {mark} {e.name:<16} {e.version or '-':<16} {needed}"
         typer.echo(line)
         for p in e.problems:
             typer.echo(f"      -> {p}")
-        if not e.available:
+        if not e.available and not e.optional:
             any_missing = True
         if not e.ok and e.install_hint:
             typer.echo(f"      -> kurulum: {e.install_hint}")
@@ -569,13 +571,22 @@ def latex(
     from toolia.convert.latex import compile_project, extract_project, find_main
     from toolia.core.pdfio import unique_path
 
+    # Mutlak yol: göreli ad (`.`, `-x.tex`) alt süreçlere (Ghostscript, pdflatex) seçenek
+    # gibi geçmesin.
+    kaynak = kaynak.resolve()
+    if kaynak.is_file() and kaynak.suffix.lower() not in (".zip", ".tex"):
+        raise TooliaError(f"'{kaynak.name}' bir LaTeX dosyası değil: .tex dosyası, proje "
+                          "klasörü ya da Overleaf'ten indirilen .zip ver.")
+    if motor not in ("auto", "pdflatex", "xelatex", "lualatex"):
+        raise TooliaError(f"Bilinmeyen motor: {motor}")
     settings = load_settings(config)
     status = engines.detect_latex(settings)
     if not status.ok:
         raise TooliaError(status.problems[0] if status.problems else
                           f"LaTeX bulunamadı. Kur: {status.install_hint}")
-    if motor not in ("auto", "pdflatex", "xelatex", "lualatex"):
-        raise TooliaError(f"Bilinmeyen motor: {motor}")
+    if cikti is not None:  # `-o yeni/klasor/cikti.pdf`: klasör yoksa açılır
+        cikti = cikti.resolve()
+        cikti.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="pa-tex-") as tmp:
         if kaynak.is_file() and kaynak.suffix.lower() == ".zip":
             root = Path(tmp) / "proje"

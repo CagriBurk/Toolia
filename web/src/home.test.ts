@@ -69,6 +69,21 @@ describe("ana sayfa: bırakılan dosyalar", () => {
     expect(
       homeRoute([file("t", "main.tex", "tex"), file("b", "kaynak.bib", "tex"), file("r", "sekil.png", "image"), file("p", "grafik.pdf", "pdf")]),
     ).toEqual({ type: "go", path: "latex", query: { dosya: ["t", "b", "r", "p"] } });
+    // Veri dosyaları (.csv "office", .txt "text") projeyle birlikte LaTeX'e gider.
+    expect(
+      homeRoute([file("t", "main.tex", "tex"), file("c", "veriler.csv", "office"), file("n", "not.txt", "text")]),
+    ).toEqual({ type: "go", path: "latex", query: { dosya: ["t", "c", "n"] } });
+    expect(homeRoute([file("z", "Rapor.zip", "zip"), file("c", "veriler.csv", "office")])).toEqual({
+      type: "go",
+      path: "latex",
+      query: { dosya: ["z", "c"] },
+    });
+    // .tex ya da zip yoksa .csv / .txt eskisi gibi Office'e gider.
+    expect(homeRoute([file("c", "veriler.csv", "office"), file("n", "not.txt", "text")])).toEqual({
+      type: "go",
+      path: "office",
+      query: { dosya: ["c", "n"] },
+    });
     // .tex yoksa resim + PDF eskisi gibi uyarı verir.
     expect(homeRoute([file("p", "a.pdf", "pdf"), file("r", "r.png", "image")])).toMatchObject({ type: "error" });
   });
