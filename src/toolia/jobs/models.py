@@ -241,11 +241,23 @@ class ConvertRequest(_Base):
         return self
 
 
+class TexToPdfRequest(_Base):
+    """LaTeX → PDF: Overleaf'ten indirilen proje .zip'i ya da ana .tex ile yanındaki dosyalar
+    (.bib, .sty, resimler). Ana dosya `main` boşsa `documentclass` satırından bulunur. Yalnızca bu
+    bilgisayardan istenebilir (TeX diskteki dosyaları okuyabilir)."""
+
+    type: Literal["tex_to_pdf"]
+    files: list[FileId] = Field(min_length=1, max_length=500)
+    main: str | None = Field(default=None, max_length=300)
+    engine: Literal["auto", "pdflatex", "xelatex", "lualatex"] = "auto"
+    name: str | None = None
+
+
 class InstallEngineRequest(_Base):
     """Eksik motoru kullanıcının onayıyla kurar (winget). Yalnızca bu bilgisayardan istenebilir."""
 
     type: Literal["install_engine"]
-    engine: Literal["libreoffice"]
+    engine: Literal["libreoffice", "miktex"]
 
 
 JobRequest = Annotated[
@@ -253,6 +265,6 @@ JobRequest = Annotated[
     | PdfToWordRequest | PdfToExcelRequest | MdToPdfRequest | OfficeToPdfRequest | ApplyRequest
     | CompressRequest | OcrRequest | LayoutRequest
     | EncryptRequest | DecryptRequest | CleanMetadataRequest | RepairRequest
-    | ConvertRequest | InstallEngineRequest,
+    | ConvertRequest | InstallEngineRequest | TexToPdfRequest,
     Field(discriminator="type"),
 ]

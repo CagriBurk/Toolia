@@ -92,7 +92,7 @@ export function fileTypeTone(name: string, kind: FileMeta["kind"]): string {
   const ext = dot > 0 ? name.slice(dot).toLowerCase() : "";
   if (kind === "pdf" || ext === ".pdf") return "ft-pdf";
   if (kind === "image") return "ft-img";
-  if (kind === "markdown") return "ft-md";
+  if (kind === "markdown" || kind === "tex") return "ft-md";
   if ([".xlsx", ".xls", ".xlsm", ".ods", ".csv"].includes(ext)) return "ft-sheet";
   if ([".pptx", ".ppt", ".pptm", ".odp"].includes(ext)) return "ft-slide";
   if (kind === "office" || [".docx", ".doc", ".docm", ".odt", ".rtf", ".wpd"].includes(ext)) return "ft-doc";

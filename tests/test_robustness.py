@@ -274,14 +274,18 @@ def _accept_lists() -> dict[str, list[str]]:
 
 def test_ui_accept_lists_match_store_kinds():
     expected = {"pdf": {"pdf"}, "images": {"image"}, "markdown": {"markdown", "text"},
-                "office": {"office", "html", "text"}}
+                "office": {"office", "html", "text"},
+                # LaTeX projesi: zip, .tex/.bib/.sty, şekiller ve veri dosyaları (.eps, .dat →
+                # türsüz "other"; sunucu hepsini proje klasörüne kopyalar).
+                "latex": {"zip", "tex", "image", "pdf", "text", "office", None}}
     lists = _accept_lists()
     assert set(lists) == set(expected)
     for key, exts in lists.items():
         for ext in exts:
             assert KINDS.get(ext) in expected[key], f"ACCEPT.{key}: {ext} → {KINDS.get(ext)}"
-    from toolia.formats import OFFICE_EXTS
+    from toolia.formats import ARCHIVE_EXTS, OFFICE_EXTS, TEX_EXTS
     assert set(lists["office"]) >= OFFICE_EXTS, "arayüz bir Office türünü kabul etmiyor"
+    assert set(lists["latex"]) >= TEX_EXTS | ARCHIVE_EXTS, "arayüz bir LaTeX türünü kabul etmiyor"
 
 
 def test_ui_convert_targets_match_formats():

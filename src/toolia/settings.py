@@ -70,6 +70,7 @@ class EnginePaths:
     tesseract: str = ""
     ghostscript: str = ""
     browser: str = ""
+    latex: str = ""  # pdflatex (ya da bulunduğu klasör)
 
 
 @dataclass

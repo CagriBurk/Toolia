@@ -64,6 +64,15 @@ describe("ana sayfa: bırakılan dosyalar", () => {
     expect(homeRoute([file("s", "çizim.svg", "image")])).toEqual({ type: "go", path: "resimden", query: { dosya: ["s"] } });
   });
 
+  it("LaTeX projesi (zip ya da .tex + resim/PDF/.bib) LaTeX aracına gider", () => {
+    expect(homeRoute([file("z", "Rapor.zip", "zip")])).toEqual({ type: "go", path: "latex", query: { dosya: ["z"] } });
+    expect(
+      homeRoute([file("t", "main.tex", "tex"), file("b", "kaynak.bib", "tex"), file("r", "sekil.png", "image"), file("p", "grafik.pdf", "pdf")]),
+    ).toEqual({ type: "go", path: "latex", query: { dosya: ["t", "b", "r", "p"] } });
+    // .tex yoksa resim + PDF eskisi gibi uyarı verir.
+    expect(homeRoute([file("p", "a.pdf", "pdf"), file("r", "r.png", "image")])).toMatchObject({ type: "error" });
+  });
+
   it("birlikte işlenemeyen türler uyarı verir", () => {
     expect(homeRoute([file("a", "a.pdf", "pdf"), file("r", "r.png", "image")])).toMatchObject({ type: "error" });
     expect(homeRoute([file("r", "r.png", "image"), file("w", "a.docx", "office")])).toMatchObject({ type: "error" });

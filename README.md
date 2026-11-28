@@ -15,6 +15,8 @@ The interface is available in Turkish and English; Türkçe açıklama aşağıd
 - **Convert:** Markdown / Word / Excel / PowerPoint / HTML → PDF, PDF → Word / Excel / images,
   and format conversion for images (HEIC → JPG, PNG ↔ WEBP…) and Office files (DOCX ↔ ODT,
   XLSX ↔ CSV…).
+- **LaTeX → PDF:** compile an Overleaf project (.zip) or a .tex file locally with MiKTeX or
+  TeX Live, without a compile time limit; errors are shown with file and line.
 - **Edit:** a drag-and-drop page editor (reorder, rotate, delete, insert, undo/redo, full
   keyboard support), an annotation editor (text, images, signatures, shapes) and true
   redaction that removes the underlying content, not just covers it.
@@ -59,8 +61,9 @@ uv sync; npm --prefix web install; npm --prefix web run build
 uv run python -m toolia serve        # http://127.0.0.1:8790
 ```
 
-LibreOffice, Tesseract and Ghostscript are optional engines; the Settings page shows which
-ones are missing and how to install them. Ready-made packages for Windows (`.zip`) and Linux
+LibreOffice, Tesseract, Ghostscript and a TeX distribution (MiKTeX or TeX Live, for
+LaTeX → PDF) are optional engines; the Settings page shows which ones are missing and how to
+install them. Ready-made packages for Windows (`.zip`) and Linux
 (`-linux-x86_64.tar.gz`) are available on [Releases](https://github.com/CagriBurk/Toolia/releases).
 
 More documentation (in Turkish): [user guide](docs/KULLANIM.md),
@@ -79,6 +82,8 @@ Dosyalar internete çıkmaz; kayıt, reklam ya da dosya boyutu sınırı yoktur.
 
 - **Dönüştürme:** Markdown, Word, Excel, PowerPoint ve HTML → PDF; PDF → Word, Excel ve resim.
   Resim (HEIC → JPG, PNG ↔ WEBP) ve Office biçimleri (DOCX ↔ ODT, XLSX ↔ CSV) arasında dönüştürme.
+- **LaTeX → PDF:** Overleaf projesi (.zip) ya da .tex dosyası MiKTeX / TeX Live ile bilgisayarda,
+  süre sınırı olmadan derlenir; hatalar dosya ve satır numarasıyla gösterilir.
 - **Düzenleme:** sürükle-bırak sayfa düzenleyici; yazı, resim ve imza ekleme; altındaki içeriği
   gerçekten silen karartma.
 - **İşleme:** birleştirme, bölme, filigran, sayfa numarası, sıkıştırma, Türkçe + İngilizce OCR,

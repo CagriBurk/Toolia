@@ -15,6 +15,7 @@ import {
   Printer,
   ScanText,
   Scissors,
+  Sigma,
   Table,
   type LucideIcon,
 } from "lucide-react";
@@ -48,6 +49,7 @@ const DEFS: Omit<Tool, "tone">[] = [
   { id: "convert", title: "Biçim Dönüştür", description: "PDF, resim ve Office dosyalarını tek ekranda dönüştür (JPG ↔ PNG ↔ PDF, DOCX ↔ ODT, XLSX ↔ CSV…)", route: "donustur", group: "Dönüştür", icon: ArrowLeftRight },
   { id: "md", title: "Markdown → PDF", description: "Formüller, Obsidian callout'ları, kod renklendirme", route: "md", group: "Dönüştür", icon: FileCode, needs: ["browser"] },
   { id: "office", title: "Office → PDF", description: "Word, Excel, PowerPoint, ODT, RTF, HTML, TXT", route: "office", group: "Dönüştür", icon: FileText, needs: ["libreoffice"] },
+  { id: "latex", title: "LaTeX → PDF", description: "Overleaf projesi (.zip) ya da .tex dosyası; süre sınırı yok", route: "latex", group: "Dönüştür", icon: Sigma, needs: ["latex"] },
   { id: "img2pdf", title: "Resim → PDF", description: "JPG, PNG, HEIC fotoğraflardan PDF", route: "resimden", group: "Dönüştür", icon: ImageIcon },
   { id: "pdf2img", title: "PDF → Resim", description: "Sayfaları PNG / JPG olarak çıkar", route: "resme", group: "Dönüştür", icon: Images },
   { id: "pdf2word", title: "PDF → Word", description: "Düzenlenebilir Word belgesi (.docx)", route: "word", group: "Dönüştür", icon: FileIcon },
@@ -131,6 +133,8 @@ export const ACCEPT = {
   markdown: ".md,.markdown,.txt",
   // Tek kaynak: src/toolia/formats.py (tests/test_robustness.py tutarlılığı denetler).
   office: ".docx,.doc,.docm,.odt,.rtf,.wpd,.xlsx,.xls,.xlsm,.ods,.csv,.pptx,.ppt,.pptm,.odp,.html,.htm,.txt",
+  // LaTeX → PDF: proje zip'i ya da ana .tex ile yanındakiler (src/toolia/formats.py TEX_EXTS).
+  latex: ".zip,.tex,.bib,.cls,.sty,.bst,.png,.jpg,.jpeg,.pdf,.eps,.svg,.csv,.dat,.txt",
   // Biçim Dönüştür'ün kaynakları; yukarıdaki tablodan türer.
   convert: Object.values(CONVERT_TARGETS)
     .flatMap((f) => f.sources)

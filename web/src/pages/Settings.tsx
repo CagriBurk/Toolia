@@ -11,7 +11,7 @@ import {
   type UpdateInfo,
 } from "../api";
 import Icon from "../components/Icon";
-import InstallLibreOffice from "../components/InstallLibreOffice";
+import InstallLibreOffice, { InstallEngine } from "../components/InstallLibreOffice";
 import Modal from "../components/Modal";
 import { useJobActivity } from "../hooks";
 import { restartApp } from "../restart";
@@ -639,6 +639,7 @@ export function EngineList({ data, onRefresh }: { data: EnginesResponse; onRefre
             {!e.available && e.key === "libreoffice" && data.windows && (
               <InstallLibreOffice onInstalled={onRefresh} />
             )}
+            {!e.available && e.key === "latex" && data.windows && <InstallEngine engine="miktex" onInstalled={onRefresh} />}
             {!e.ok && e.install_hint && (
               <p className="engine-hint">
                 {t("Elle kurulum:")} <code>{e.install_hint}</code>

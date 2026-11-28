@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Jobs from "./pages/Jobs";
 import Markdown from "./pages/Markdown";
 import Merge from "./pages/Merge";
+import Latex from "./pages/Latex";
 import Office from "./pages/Office";
 import Compress from "./pages/Compress";
 import Convert from "./pages/Convert";
@@ -165,6 +166,8 @@ export default function App() {
   else if (section === "md") content = <Markdown route={route} engines={engines} />;
   else if (section === "office")
     content = <Office route={route} engines={engines} onEnginesChanged={() => void loadEngines(true)} />;
+  else if (section === "latex")
+    content = <Latex route={route} engines={engines} onEnginesChanged={() => void loadEngines(true)} />;
   else if (section === "resimden") content = <ImagesToPdf route={route} />;
   else if (section === "resme") content = <PdfToImages route={route} />;
   else if (section === "word") content = <PdfToWord route={route} />;

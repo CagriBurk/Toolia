@@ -33,8 +33,12 @@ export function homeRoute(files: Dropped[]): HomeRoute {
   if (all("pdf")) {
     return ids.length === 1 ? { type: "go", path: `duzenle/${ids[0]}` } : { type: "go", path: "birlestir", query: { dosya: ids } };
   }
+  // LaTeX projesi: zip ya da .tex, yanında resim / PDF şekiller / .bib.
+  if (files.some((f) => f.kind === "tex" || f.kind === "zip") && all("tex", "zip", "image", "pdf", "other")) {
+    return { type: "go", path: "latex", query: { dosya: ids } };
+  }
   const pdfPath = all("image") ? "resimden" : all("office", "html", "text") ? "office" : null;
-  if (!pdfPath) return { type: "error", message: t("Bu dosya türleri birlikte işlenemiyor. PDF, resim, Office belgesi ya da Markdown bırak.") };
+  if (!pdfPath) return { type: "error", message: t("Bu dosya türleri birlikte işlenemiyor. PDF, resim, Office belgesi, Markdown ya da LaTeX bırak.") };
   // HTML / TXT'nin dönüştürme hedefi yok; yalnız saf resim ya da saf Office seçimi sorulur.
   const targets = pdfPath === "resimden" || all("office") ? commonConvertTargets(files.map((f) => f.name)) : [];
   if (!targets.length) return { type: "go", path: pdfPath, query: { dosya: ids } };
@@ -56,6 +60,7 @@ const ROUTES: [string, string][] = [
   ["Markdown (+ resimleri)", "PDF'e dönüşür"],
   ["Word, Excel, PowerPoint", "PDF ya da başka biçim"],
   ["HTML, TXT", "PDF olur"],
+  ["LaTeX (.tex ya da Overleaf .zip'i)", "PDF'e derlenir"],
 ];
 
 export default function Home({ engines, onSearch }: { engines: EnginesResponse | null; onSearch: () => void }) {
